@@ -159,7 +159,7 @@ export default function JobsPage() {
                             </TableRow>
                         ) : (
                             displayedJobs.map((job) => (
-                                <TableRow key={job.id} className="hover:bg-gray-50/50 transition-colors group cursor-pointer" onClick={() => (window.location.href = `/jobs/${job.id}`)}>
+                                <TableRow key={job.id} className="hover:bg-gray-50/50 transition-colors group cursor-pointer" onClick={() => router.push(`/jobs/${job.id}`)}>
                                     <TableCell className="pl-8">
                                         <div className="flex flex-col">
                                             <span className="font-medium text-gray-900 truncate max-w-[250px]">
