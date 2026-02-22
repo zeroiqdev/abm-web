@@ -134,7 +134,7 @@ function SidebarContent({ user, pathname, navItems, onLogout }: any) {
                 <div className="flex items-center gap-3">
                     <Avatar>
                         <AvatarImage src="" />
-                        <AvatarFallback className="bg-black text-white">
+                        <AvatarFallback className="bg-black text-white text-xs">
                             {user?.name?.charAt(0) || "U"}
                         </AvatarFallback>
                     </Avatar>
