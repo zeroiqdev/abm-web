@@ -34,7 +34,7 @@ export default function LoginPage() {
         try {
             setError(null);
             await login(values.email, values.password);
-            router.push("/admin"); // Redirect to dashboard
+            router.push("/"); // Redirect to dashboard
         } catch (err: any) {
             setError("Invalid email or password. Please try again.");
             console.error(err);
