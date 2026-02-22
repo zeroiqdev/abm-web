@@ -43,14 +43,11 @@ export default function LoginPage() {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-            <div className="mb-8">
-                <img src="/logo.png" alt="ABM Logo" className="h-24 w-auto" />
-            </div>
             <Card className="w-full max-w-[400px]">
-                <CardHeader>
-                    <CardTitle className="text-2xl text-center">ABM Staff Portal</CardTitle>
+                <CardHeader className="flex flex-col items-center">
+                    <img src="/logo.png" alt="ABM Logo" className="h-20 w-auto mb-4" />
                     <CardDescription className="text-center">
-                        Login to access your dashboard
+                        Login to access your workshop dashboard
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
