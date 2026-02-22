@@ -57,7 +57,10 @@ export default function StaffManagementPage() {
     }, [user?.workshopId]);
 
     const loadData = async () => {
-        if (!user?.workshopId) return;
+        if (!user?.workshopId) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
             const [invitesData, usersData] = await Promise.all([

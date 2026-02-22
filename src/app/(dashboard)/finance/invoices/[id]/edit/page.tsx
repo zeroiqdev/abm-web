@@ -63,7 +63,10 @@ export default function EditInvoicePage() {
 
     useEffect(() => {
         const fetchInventory = async () => {
-            if (!user?.workshopId) return;
+            if (!user?.workshopId) {
+                setLoading(false);
+                return;
+            }
             try {
                 const data = await firebaseService.getInventoryItems(user.workshopId);
                 setInventoryItems(data);

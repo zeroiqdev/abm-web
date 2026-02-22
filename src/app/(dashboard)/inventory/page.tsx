@@ -127,7 +127,10 @@ export default function InventoryPage() {
             toast.error("Please fill in Vendor Name and Item Name.");
             return;
         }
-        if (!user?.workshopId) return;
+        if (!user?.workshopId) {
+            setLoading(false);
+            return;
+        }
 
         // Validate new unit IDs — no empty slots
         const emptyNewSlots = newUnitIds.some(id => id.trim() === "");

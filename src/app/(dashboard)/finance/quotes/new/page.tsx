@@ -49,7 +49,10 @@ export default function CreateQuotePage() {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!user?.workshopId) return;
+            if (!user?.workshopId) {
+                setLoading(false);
+                return;
+            }
             try {
                 const [customersData, inventoryData] = await Promise.all([
                     firebaseService.getUsersByWorkshop(user.workshopId),

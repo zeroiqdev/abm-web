@@ -42,7 +42,10 @@ export default function FinanceDashboard() {
 
     useEffect(() => {
         const fetchFinanceData = async () => {
-            if (!user?.workshopId) return;
+            if (!user?.workshopId) {
+                setLoading(false);
+                return;
+            }
             try {
                 const [invoiceData, quoteData] = await Promise.all([
                     firebaseService.getInvoices(undefined, user.workshopId),

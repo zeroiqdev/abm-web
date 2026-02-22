@@ -58,7 +58,10 @@ export default function DashboardPage() {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!user?.workshopId) return;
+            if (!user?.workshopId) {
+                setLoading(false);
+                return;
+            }
             try {
                 const [jobsData, invoicesData, inventoryData, usersData] = await Promise.all([
                     firebaseService.getJobs(undefined, user.workshopId),

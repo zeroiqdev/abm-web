@@ -54,7 +54,10 @@ export default function CreateJobPage() {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!user?.workshopId) return;
+            if (!user?.workshopId) {
+                setLoading(false);
+                return;
+            }
             try {
                 const [usersData, inventoryData] = await Promise.all([
                     firebaseService.getUsersByWorkshop(user.workshopId),

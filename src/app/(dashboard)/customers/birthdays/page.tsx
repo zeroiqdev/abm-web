@@ -26,7 +26,10 @@ export default function BirthdayCustomersPage() {
 
     useEffect(() => {
         const fetchCustomers = async () => {
-            if (!user?.workshopId) return;
+            if (!user?.workshopId) {
+                setLoading(false);
+                return;
+            }
             try {
                 const allUsers = await firebaseService.getUsersByWorkshop(user.workshopId);
                 const customers = allUsers.filter(u => u.role === "customer");

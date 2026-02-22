@@ -82,7 +82,10 @@ export default function AccessControlPage() {
     }, [user?.workshopId]);
 
     const fetchPermissions = async () => {
-        if (!user?.workshopId) return;
+        if (!user?.workshopId) {
+            setLoading(false);
+            return;
+        }
         try {
             const perms = await firebaseService.getWorkshopPermissions(user.workshopId);
             setPermissions(perms || {});
