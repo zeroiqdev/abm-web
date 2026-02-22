@@ -15,13 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Abm workshop management",
-  description: "Advanced workshop and fleet management system",
-  icons: {
-    icon: "/logo.png",
-    shortcut: "/logo.png",
-    apple: "/logo.png",
-  },
+  title: "ABM",
+  description: "ABM Workshop & Fleet Management",
 };
 
 export default function RootLayout({
