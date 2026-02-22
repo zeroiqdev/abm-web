@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   basePath: '/admin',
-  trailingSlash: true,
+  skipTrailingSlashRedirect: true,
   /* experimental: {
     // This can help with some multi-zone issues if needed
     // externalDir: true,
