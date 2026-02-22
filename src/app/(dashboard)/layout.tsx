@@ -40,7 +40,7 @@ export default function DashboardLayout({
 
     useEffect(() => {
         if (isMounted && initialized && !loading && !user) {
-            router.push("/login");
+            router.push("/login/");
         }
     }, [user, loading, router, isMounted, initialized]);
 
@@ -78,7 +78,7 @@ export default function DashboardLayout({
                     navItems={navItems}
                     onLogout={() => {
                         logout();
-                        router.push("/login");
+                        router.push("/login/");
                     }}
                 />
             </aside>
@@ -112,7 +112,7 @@ export default function DashboardLayout({
                                 navItems={navItems}
                                 onLogout={() => {
                                     logout();
-                                    router.push("/login");
+                                    router.push("/login/");
                                 }}
                             />
                         </SheetContent>
