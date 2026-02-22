@@ -88,7 +88,11 @@ export default function DashboardLayout({
                 {/* Mobile Header */}
                 <header className="flex h-16 items-center justify-between border-b bg-white px-4 md:hidden">
                     <div className="flex items-center gap-3">
-                        <img src="/logo.png" alt="ABM Logo" className="h-8 w-auto mr-2" />
+                        <Avatar className="h-8 w-8">
+                            <AvatarFallback className="bg-black text-white text-xs">
+                                {user?.name?.charAt(0) || "U"}
+                            </AvatarFallback>
+                        </Avatar>
                         <span className="text-sm font-bold truncate max-w-[120px]">{user?.name}</span>
                     </div>
 
@@ -126,25 +130,21 @@ export default function DashboardLayout({
 function SidebarContent({ user, pathname, navItems, onLogout }: any) {
     return (
         <div className="flex flex-col h-full bg-white">
-            <div className="p-6 border-b">
-                <div className="flex items-center gap-4 mb-6">
-                    <img src="/logo.png" alt="ABM Logo" className="h-10 w-auto" />
-                    <div className="flex flex-col">
-                        <span className="text-sm font-bold text-gray-900 tracking-tight">ABM Workshop</span>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3 pt-2">
-                    <Avatar className="h-9 w-9">
-                        <AvatarFallback className="bg-black text-white text-xs">
+            <div className="p-6">
+                <div className="flex items-center gap-3">
+                    <Avatar>
+                        <AvatarImage src="" />
+                        <AvatarFallback className="bg-black text-white">
                             {user?.name?.charAt(0) || "U"}
                         </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col overflow-hidden">
-                        <span className="text-xs font-bold text-gray-900 truncate">{user?.name || "User"}</span>
-                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">{user?.role || "Staff"}</span>
+                        <span className="text-sm font-bold text-gray-900 truncate">{user?.name || "User"}</span>
+                        <span className="text-xs text-gray-500 capitalize">{user?.role || "Staff"}</span>
                     </div>
                 </div>
             </div>
+            <Separator />
             <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
                 {navItems.map((item: any) => {
                     const Icon = item.icon;
