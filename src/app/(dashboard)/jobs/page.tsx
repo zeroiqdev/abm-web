@@ -23,7 +23,7 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { startOfDay, endOfDay, isWithinInterval } from "date-fns";
 
 export default function JobsPage() {
-    const router = useRouter();
+    const nextRouter = useRouter();
     const { user } = useAuthStore();
     const [jobs, setJobs] = useState<Job[]>([]);
     const [customers, setCustomers] = useState<Record<string, any>>({});
@@ -160,7 +160,7 @@ export default function JobsPage() {
                             </TableRow>
                         ) : (
                             displayedJobs.map((job) => (
-                                <TableRow key={job.id} className="hover:bg-gray-50/50 transition-colors group cursor-pointer" onClick={() => router.push(`/jobs/${job.id}`)}>
+                                <TableRow key={job.id} className="hover:bg-gray-50/50 transition-colors group cursor-pointer" onClick={() => nextRouter.push(`/jobs/${job.id}`)}>
                                     <TableCell className="pl-8">
                                         <div className="flex flex-col">
                                             <span className="font-medium text-gray-900 truncate max-w-[250px]">
