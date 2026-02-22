@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { firebaseService } from "@/services/firebaseService";
 import { useAuthStore } from "@/store/authStore";
 import { Job } from "@/types";
@@ -23,6 +23,7 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { startOfDay, endOfDay, isWithinInterval } from "date-fns";
 
 export default function JobsPage() {
+    const router = useRouter();
     const { user } = useAuthStore();
     const [jobs, setJobs] = useState<Job[]>([]);
     const [customers, setCustomers] = useState<Record<string, any>>({});
