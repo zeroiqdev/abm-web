@@ -9,7 +9,7 @@ import { firebaseService } from "@/services/firebaseService";
 import { User } from "@/types";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const { setUser, setFirebaseUser } = useAuthStore();
+    const { setUser, setFirebaseUser, setInitialized } = useAuthStore();
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -36,10 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setFirebaseUser(null);
                 setUser(null);
             }
+            setInitialized(true);
         });
 
         return () => unsubscribe();
-    }, [setUser, setFirebaseUser]);
+    }, [setUser, setFirebaseUser, setInitialized]);
 
     return <>{children}</>;
 }

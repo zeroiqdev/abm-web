@@ -16,11 +16,13 @@ interface AuthState {
     user: User | null;
     firebaseUser: FirebaseUser | null;
     loading: boolean;
+    initialized: boolean;
     login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
     setUser: (user: User | null) => void;
     setFirebaseUser: (user: FirebaseUser | null) => void;
+    setInitialized: (initialized: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -29,6 +31,7 @@ export const useAuthStore = create<AuthState>()(
             user: null,
             firebaseUser: null,
             loading: false,
+            initialized: false,
 
             login: async (email: string, password: string) => {
                 set({ loading: true });
@@ -74,6 +77,7 @@ export const useAuthStore = create<AuthState>()(
 
             setUser: (user: User | null) => set({ user }),
             setFirebaseUser: (user: FirebaseUser | null) => set({ firebaseUser: user }),
+            setInitialized: (initialized: boolean) => set({ initialized }),
         }),
         {
             name: 'auth-storage',

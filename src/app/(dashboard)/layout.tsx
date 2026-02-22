@@ -22,6 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { PageLoader } from "@/components/ui/page-loader";
 
 export default function DashboardLayout({
     children,
@@ -30,7 +31,7 @@ export default function DashboardLayout({
 }) {
     const router = useRouter();
     const pathname = usePathname();
-    const { user, loading, logout } = useAuthStore();
+    const { user, loading, logout, initialized } = useAuthStore();
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
@@ -38,14 +39,23 @@ export default function DashboardLayout({
     }, []);
 
     useEffect(() => {
-        if (isMounted && !loading && !user) {
+        if (isMounted && initialized && !loading && !user) {
             router.push("/login");
         }
-    }, [user, loading, router, isMounted]);
+    }, [user, loading, router, isMounted, initialized]);
 
     if (!isMounted) return null;
-    if (loading) return null; // Let the page-level loaders handle it, or show a global one if needed
-    if (!user) return null;
+
+    if (!initialized) {
+        return (
+            <div className="flex h-screen w-full items-center justify-center bg-gray-50">
+                <PageLoader message="Initializing session..." />
+            </div>
+        );
+    }
+
+    if (!user && !loading) return null;
+
 
     const navItems = [
         { href: "/", label: "Overview", icon: LayoutDashboard },
