@@ -86,17 +86,32 @@ export const firebaseService = {
   },
 
   async getUsersByWorkshop(workshopId: string): Promise<User[]> {
-    const q = query(collection(db, 'users'), where('workshopId', '==', workshopId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => {
-      const data = this.sanitizeUser(doc.data());
-      return {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
-      };
-    }) as User[];
+    const directQuery = query(collection(db, 'users'), where('workshopId', '==', workshopId));
+    const selectedQuery = query(collection(db, 'users'), where('selectedWorkshopIds', 'array-contains', workshopId));
+
+    const [directSnapshot, selectedSnapshot] = await Promise.all([
+      getDocs(directQuery),
+      getDocs(selectedQuery)
+    ]);
+
+    const userMap = new Map<string, User>();
+
+    const processDoc = (docSnap: any) => {
+      if (!userMap.has(docSnap.id)) {
+        const data = this.sanitizeUser(docSnap.data());
+        userMap.set(docSnap.id, {
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        } as User);
+      }
+    };
+
+    directSnapshot.docs.forEach(processDoc);
+    selectedSnapshot.docs.forEach(processDoc);
+
+    return Array.from(userMap.values());
   },
 
   async updateUser(userId: string, data: Partial<User>): Promise<void> {
@@ -117,6 +132,7 @@ export const firebaseService = {
       role: 'customer',
       workshopId: data.workshopId,
       connectedWorkshopIds: [data.workshopId],
+      selectedWorkshopIds: [data.workshopId],
       addedByWorkshopIds: [data.workshopId],
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),

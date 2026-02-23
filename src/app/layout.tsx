@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ABM",
   description: "ABM Workshop & Fleet Management",
+  icons: {
+    icon: "/admin/favicon.ico",
+  },
 };
 
 export default function RootLayout({
