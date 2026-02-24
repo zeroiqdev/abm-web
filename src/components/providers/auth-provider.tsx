@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
                     if (userDoc.exists()) {
                         const data = firebaseService.sanitizeUser(userDoc.data());
-                        let userData: User = {
+                        const userData: User = {
                             ...data,
                             id: userDoc.id,
                             createdAt: data.createdAt?.toDate() || new Date(),

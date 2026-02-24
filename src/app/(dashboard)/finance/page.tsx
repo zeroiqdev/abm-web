@@ -53,6 +53,7 @@ export default function FinanceDashboard() {
                     firebaseService.getInvoices(undefined, workshopIdToFetch),
                     firebaseService.getQuotes(workshopIdToFetch)
                 ]);
+
                 console.log(`[FinanceDashboard] Fetched ${invoiceData.length} invoices, ${quoteData.length} quotes.`);
                 setInvoices(invoiceData);
                 setQuotes(quoteData);
