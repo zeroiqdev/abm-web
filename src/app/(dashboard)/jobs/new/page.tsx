@@ -42,7 +42,7 @@ export default function CreateJobPage() {
     const [selectedIssues, setSelectedIssues] = useState<string[]>([]);
     const [serviceCharge, setServiceCharge] = useState("");
     const [technicians, setTechnicians] = useState<User[]>([]);
-    const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>("");
+    const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [fetchingData, setFetchingData] = useState(true);
 
@@ -170,10 +170,10 @@ export default function CreateJobPage() {
                 serviceCharge: labourCost,
                 status: 'diagnosed',
                 partsUsed: partsUsed.length > 0 ? partsUsed : undefined,
-                ...(selectedTechnicianId ? {
-                    assignedTechnicianId: selectedTechnicianId,
-                    assignedTechnicianIds: [selectedTechnicianId],
-                    technicianNames: [technicians.find(t => t.id === selectedTechnicianId)?.name || ''],
+                ...(selectedTechnicianIds.length > 0 ? {
+                    assignedTechnicianId: selectedTechnicianIds[0],
+                    assignedTechnicianIds: selectedTechnicianIds,
+                    technicianNames: selectedTechnicianIds.map(id => technicians.find(t => t.id === id)?.name || ''),
                 } : {}),
             };
 
@@ -465,23 +465,32 @@ export default function CreateJobPage() {
                     {/* Technician Assignment */}
                     <Card className="shadow-sm border-none bg-white">
                         <CardHeader>
-                            <CardTitle className="text-lg">Assign Technician</CardTitle>
+                            <CardTitle className="text-lg">Assign Team</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-2">
-                            <Label>Technician</Label>
-                            <Select onValueChange={setSelectedTechnicianId} value={selectedTechnicianId}>
-                                <SelectTrigger className="bg-gray-50/50 border-gray-200">
-                                    <SelectValue placeholder="Select technician (optional)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {technicians.map(t => (
-                                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        <CardContent className="space-y-4">
+                            <Label>Technicians</Label>
+                            <div className="flex flex-wrap gap-2">
+                                {technicians.map(t => (
+                                    <Badge
+                                        key={t.id}
+                                        variant={selectedTechnicianIds.includes(t.id) ? "default" : "outline"}
+                                        className="cursor-pointer px-3 py-1 text-sm font-medium transition-colors"
+                                        onClick={() => {
+                                            setSelectedTechnicianIds(prev =>
+                                                prev.includes(t.id) ? prev.filter(id => id !== t.id) : [...prev, t.id]
+                                            );
+                                        }}
+                                    >
+                                        {t.name}
+                                    </Badge>
+                                ))}
+                            </div>
                             {technicians.length === 0 && (
                                 <p className="text-xs text-orange-600 mt-1">No technicians registered in this workshop.</p>
                             )}
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                {selectedTechnicianIds.length} technician(s) selected
+                            </p>
                         </CardContent>
                     </Card>
 

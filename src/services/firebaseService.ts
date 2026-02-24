@@ -85,9 +85,18 @@ export const firebaseService = {
     return null;
   },
 
-  async getUsersByWorkshop(workshopId: string): Promise<User[]> {
-    const directQuery = query(collection(db, 'users'), where('workshopId', '==', workshopId));
-    const selectedQuery = query(collection(db, 'users'), where('selectedWorkshopIds', 'array-contains', workshopId));
+  async getUsersByWorkshop(workshopId?: string): Promise<User[]> {
+    const constraints: QueryConstraint[] = [];
+    if (workshopId) {
+      constraints.push(where('workshopId', '==', workshopId));
+    }
+    const directQuery = query(collection(db, 'users'), ...constraints);
+
+    const selectedConstraints: QueryConstraint[] = [];
+    if (workshopId) {
+      selectedConstraints.push(where('selectedWorkshopIds', 'array-contains', workshopId));
+    }
+    const selectedQuery = query(collection(db, 'users'), ...selectedConstraints);
 
     const [directSnapshot, selectedSnapshot] = await Promise.all([
       getDocs(directQuery),
@@ -164,7 +173,7 @@ export const firebaseService = {
         status: data.status || 'draft',
         approvedBy: data.approvedBy,
         amountPaid: data.amountPaid || 0,
-        paymentHistory: data.paymentHistory
+        paymentHistory: Array.isArray(data.paymentHistory)
           ? data.paymentHistory.map((record: any) => ({
             ...record,
             date: record.date?.toDate() || new Date(),
@@ -190,7 +199,7 @@ export const firebaseService = {
         status: data.status || 'draft',
         approvedBy: data.approvedBy,
         amountPaid: data.amountPaid || 0,
-        paymentHistory: data.paymentHistory
+        paymentHistory: Array.isArray(data.paymentHistory)
           ? data.paymentHistory.map((record: any) => ({
             ...record,
             date: record.date?.toDate() || new Date(),
@@ -259,11 +268,16 @@ export const firebaseService = {
     });
   },
 
-  async getInventoryItems(workshopId: string): Promise<InventoryItem[]> {
+  async getInventoryItems(workshopId?: string): Promise<InventoryItem[]> {
+    const constraints: QueryConstraint[] = [];
+    if (workshopId) {
+      constraints.push(where('workshopId', '==', workshopId));
+    }
     const q = query(
       collection(db, 'inventory'),
-      where('workshopId', '==', workshopId)
+      ...constraints
     );
+
     const snapshot = await getDocs(q);
     const items = snapshot.docs.map((doc) => ({
       id: doc.id,
@@ -401,15 +415,15 @@ export const firebaseService = {
         createdAt: data.createdAt?.toDate(),
         updatedAt: data.updatedAt?.toDate(),
         sentAt: data.sentAt?.toDate(),
-        items: data.items?.map((item: any) => ({
+        items: Array.isArray(data.items) ? data.items.map((item: any) => ({
           ...item,
           addedAt: item.addedAt?.toDate(),
           approvedAt: item.approvedAt?.toDate(),
-        })),
-        history: data.history?.map((log: any) => ({
+        })) : [],
+        history: Array.isArray(data.history) ? data.history.map((log: any) => ({
           ...log,
           timestamp: log.timestamp?.toDate(),
-        })),
+        })) : [],
       } as Quote;
     }
     return null;
@@ -435,15 +449,15 @@ export const firebaseService = {
         createdAt: data.createdAt?.toDate(),
         updatedAt: data.updatedAt?.toDate(),
         sentAt: data.sentAt?.toDate(),
-        items: data.items?.map((item: any) => ({
+        items: Array.isArray(data.items) ? data.items.map((item: any) => ({
           ...item,
           addedAt: item.addedAt?.toDate(),
           approvedAt: item.approvedAt?.toDate(),
-        })),
-        history: data.history?.map((log: any) => ({
+        })) : [],
+        history: Array.isArray(data.history) ? data.history.map((log: any) => ({
           ...log,
           timestamp: log.timestamp?.toDate(),
-        })),
+        })) : [],
       };
     }) as Quote[];
   },
@@ -591,6 +605,20 @@ export const firebaseService = {
       const bDate = b.createdAt?.getTime() || 0;
       return bDate - aDate;
     });
+  },
+
+  async getVehicle(vehicleId: string): Promise<Vehicle | null> {
+    const docRef = doc(db, 'vehicles', vehicleId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return {
+        id: docSnap.id,
+        ...docSnap.data(),
+        createdAt: docSnap.data().createdAt?.toDate(),
+        updatedAt: docSnap.data().updatedAt?.toDate(),
+      } as Vehicle;
+    }
+    return null;
   },
 
   async addVehicle(vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {

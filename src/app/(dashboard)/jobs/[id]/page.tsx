@@ -23,8 +23,15 @@ import {
     FileText,
     AlertCircle,
     History,
-    Loader2
+    Loader2,
+    Search,
+    Trash2,
+    Plus,
+    Minus,
+    Package
 } from "lucide-react";
+
+
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -33,8 +40,16 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogTrigger
+    DialogTrigger,
+    DialogFooter
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PartUsed, InventoryItem } from "@/types";
+
+
 
 export default function JobDetailsPage() {
     const { id } = useParams();
@@ -50,6 +65,43 @@ export default function JobDetailsPage() {
     const [loading, setLoading] = useState(true);
     const [isStatusOpen, setIsStatusOpen] = useState(false);
     const [updatingStatus, setUpdatingStatus] = useState(false);
+    const [isManageTeamOpen, setIsManageTeamOpen] = useState(false);
+    const [availableTechnicians, setAvailableTechnicians] = useState<User[]>([]);
+    const [selectedTechIds, setSelectedTechIds] = useState<string[]>([]);
+    const [updatingTeam, setUpdatingTeam] = useState(false);
+    const [isEditJobOpen, setIsEditJobOpen] = useState(false);
+    const [updatingJob, setUpdatingJob] = useState(false);
+    const [customerVehicles, setCustomerVehicles] = useState<Vehicle[]>([]);
+    const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+    const [partSearch, setPartSearch] = useState("");
+    const [showPartsPicker, setShowPartsPicker] = useState(false);
+
+    const [editForm, setEditForm] = useState({
+        description: "",
+        serviceCharge: 0,
+        issues: [] as string[],
+        vehicleId: "",
+        partsUsed: [] as (PartUsed & { maxQty?: number })[],
+        assignedTechnicianIds: [] as string[]
+    });
+
+
+
+    const ISSUE_OPTIONS = [
+        'Servicing',
+        'Mechanical',
+        'Electrical',
+        'Hydraulic',
+        'Software / Sensors',
+        'Wear & Tear',
+        'Accidental Damage',
+        'Fluid Leak',
+        'Noise / Vibration',
+        'Overheating',
+        'Performance Loss',
+        'Others',
+    ];
+
 
     useEffect(() => {
         const fetchJobData = async () => {
@@ -58,24 +110,43 @@ export default function JobDetailsPage() {
                 const jobData = await firebaseService.getJob(id as string);
                 if (jobData) {
                     setJob(jobData);
+                    setSelectedTechIds(jobData.assignedTechnicianIds || (jobData.assignedTechnicianId ? [jobData.assignedTechnicianId] : []));
+                    setEditForm({
+                        description: jobData.description || "",
+                        serviceCharge: jobData.serviceCharge || 0,
+                        issues: jobData.issues || [],
+                        vehicleId: jobData.vehicleId || "",
+                        partsUsed: jobData.partsUsed || [],
+                        assignedTechnicianIds: jobData.assignedTechnicianIds || (jobData.assignedTechnicianId ? [jobData.assignedTechnicianId] : [])
+                    });
+
+
+
 
                     // Parallel fetch related info
-                    const [custData, vehData, invData, quoteData] = await Promise.all([
+                    const [custData, vehData, invData, quoteData, techsData, custVehs, inventory] = await Promise.all([
                         firebaseService.getUser(jobData.userId),
-                        firebaseService.getVehicles(jobData.userId).then(list => list.find(v => v.id === jobData.vehicleId)),
+                        firebaseService.getVehicle(jobData.vehicleId),
                         firebaseService.getInvoices(undefined, currentUser.workshopId).then(list => list.filter(inv => inv.jobId === id)),
-                        firebaseService.getQuotes(currentUser.workshopId).then(list => list.filter(q => q.jobId === id))
+                        firebaseService.getQuotes(currentUser.workshopId).then(list => list.filter(q => q.jobId === id)),
+                        firebaseService.getUsersByRole('technician', currentUser.workshopId),
+                        firebaseService.getVehicles(jobData.userId),
+                        firebaseService.getInventoryItems(currentUser.workshopId)
                     ]);
 
                     setCustomer(custData);
-                    setVehicle(vehData || null);
+                    setVehicle(vehData);
                     setInvoices(invData);
                     setQuotes(quoteData);
+                    setAvailableTechnicians(techsData);
+                    setCustomerVehicles(custVehs);
+                    setInventoryItems(inventory);
 
                     if (jobData.assignedTechnicianId) {
                         const techData = await firebaseService.getUser(jobData.assignedTechnicianId);
                         setTechnician(techData);
                     }
+
                 }
             } catch (error) {
                 console.error("Error fetching job details:", error);
@@ -140,6 +211,7 @@ export default function JobDetailsPage() {
             });
 
             setIsStatusOpen(false);
+            toast.success(`Job status updated to ${newStatus}`);
         } catch (error) {
             console.error('Error updating job status:', error);
             toast.error('Failed to update job status.');
@@ -147,6 +219,162 @@ export default function JobDetailsPage() {
             setUpdatingStatus(false);
         }
     };
+
+    const handleUpdateTeam = async () => {
+        if (!job || !currentUser) return;
+        setUpdatingTeam(true);
+        try {
+            const selectedTechs = availableTechnicians.filter(t => selectedTechIds.includes(t.id));
+            const techNames = selectedTechs.map(t => t.name || t.email);
+
+            const updateData: Partial<Job> = {
+                assignedTechnicianIds: selectedTechIds,
+                technicianNames: techNames,
+                // Backward compatibility
+                assignedTechnicianId: selectedTechIds[0] || undefined,
+                technicianName: techNames[0] || undefined,
+            };
+
+            await firebaseService.updateJob(job.id, updateData);
+
+            setJob({
+                ...job,
+                ...updateData
+            });
+
+            setIsManageTeamOpen(false);
+            toast.success('Technician team updated successfully.');
+        } catch (error) {
+            console.error('Error updating team:', error);
+            toast.error('Failed to update team.');
+        } finally {
+            setUpdatingTeam(false);
+        }
+    };
+
+    const toggleTech = (id: string) => {
+        setSelectedTechIds(prev =>
+            prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
+        );
+    };
+
+    const handleUpdateJobDetails = async () => {
+        if (!job || !currentUser) return;
+        setUpdatingJob(true);
+        try {
+            const technicianNames = editForm.assignedTechnicianIds.map(id => {
+                const tech = availableTechnicians.find(t => t.id === id);
+                return tech?.name || 'Assigned Staff';
+            });
+
+            const updateData: Partial<Job> = {
+                description: editForm.description,
+                serviceCharge: editForm.serviceCharge,
+                issues: editForm.issues,
+                vehicleId: editForm.vehicleId,
+                partsUsed: editForm.partsUsed.map(({ maxQty, ...rest }) => rest), // Remove maxQty helper
+                assignedTechnicianIds: editForm.assignedTechnicianIds,
+                technicianNames,
+                assignedTechnicianId: editForm.assignedTechnicianIds[0] || null,
+                updatedAt: new Date(),
+                type: editForm.issues.includes('Servicing')
+                    ? (editForm.issues.length === 1 ? 'service' : 'service_and_repair')
+                    : 'repair',
+            };
+
+            await firebaseService.updateJob(job.id, updateData);
+
+            // Update local state and fetch new vehicle details if changed
+            if (updateData.vehicleId !== job.vehicleId) {
+                const newVeh = await firebaseService.getVehicle(updateData.vehicleId!);
+                setVehicle(newVeh);
+            }
+
+            setJob({
+                ...job,
+                ...updateData
+            });
+            setSelectedTechIds(editForm.assignedTechnicianIds);
+
+            setIsEditJobOpen(false);
+            toast.success('Job details updated successfully.');
+        } catch (error) {
+            console.error('Error updating job:', error);
+            toast.error('Failed to update job details.');
+        } finally {
+            setUpdatingJob(false);
+        }
+    };
+
+
+
+    const toggleIssue = (issue: string) => {
+        setEditForm(prev => ({
+            ...prev,
+            issues: prev.issues.includes(issue)
+                ? prev.issues.filter(i => i !== issue)
+                : [...prev.issues, issue]
+        }));
+    };
+
+    const toggleTechInEditForm = (techId: string) => {
+        setEditForm(prev => ({
+            ...prev,
+            assignedTechnicianIds: prev.assignedTechnicianIds.includes(techId)
+                ? prev.assignedTechnicianIds.filter(id => id !== techId)
+                : [...prev.assignedTechnicianIds, techId]
+        }));
+    };
+
+
+    const filteredInventory = useMemo(() => {
+        const alreadyAdded = new Set(editForm.partsUsed.map(p => p.partId));
+        return inventoryItems
+            .filter(item => item.quantity > 0)
+            .filter(item => !alreadyAdded.has(item.id))
+            .filter(item =>
+                item.name.toLowerCase().includes(partSearch.toLowerCase()) ||
+                item.category?.toLowerCase().includes(partSearch.toLowerCase())
+            );
+    }, [inventoryItems, partSearch, editForm.partsUsed]);
+
+    const addPart = (item: InventoryItem) => {
+        setEditForm(prev => ({
+            ...prev,
+            partsUsed: [
+                ...prev.partsUsed,
+                {
+                    partId: item.id,
+                    partName: item.name,
+                    quantity: 1,
+                    unitPrice: item.sellingPrice || item.unitPrice,
+                    maxQty: item.quantity,
+                }
+            ]
+        }));
+        setPartSearch("");
+        setShowPartsPicker(false);
+    };
+
+    const updatePartQty = (partId: string, delta: number) => {
+        setEditForm(prev => ({
+            ...prev,
+            partsUsed: prev.partsUsed.map(p => {
+                if (p.partId !== partId) return p;
+                const newQty = Math.max(1, Math.min(p.maxQty || 999, p.quantity + delta));
+                return { ...p, quantity: newQty };
+            })
+        }));
+    };
+
+    const removePart = (partId: string) => {
+        setEditForm(prev => ({
+            ...prev,
+            partsUsed: prev.partsUsed.filter(p => p.partId !== partId)
+        }));
+    };
+
+
 
     if (loading) {
         return (
@@ -201,9 +429,13 @@ export default function JobDetailsPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <Button variant="outline" className="rounded-xl font-bold border-gray-200" onClick={() => setIsEditJobOpen(true)}>
+                        Edit Job
+                    </Button>
                     <Button variant="outline" className="rounded-xl font-bold border-gray-200">
                         Print Job Card
                     </Button>
+
                     <Dialog open={isStatusOpen} onOpenChange={setIsStatusOpen}>
                         <DialogTrigger asChild>
                             <Button className="rounded-xl bg-gray-900 hover:bg-black font-bold shadow-md">
@@ -321,6 +553,30 @@ export default function JobDetailsPage() {
                         </CardContent>
                     </Card>
 
+                    {/* Parts Used */}
+                    {job.partsUsed && job.partsUsed.length > 0 && (
+                        <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden mb-8">
+                            <CardHeader className="px-10 py-8 border-b border-gray-50 bg-gray-50/50">
+                                <CardTitle className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-3">
+                                    <Package className="h-4 w-4" /> Parts Used
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-10">
+                                <div className="space-y-4">
+                                    {job.partsUsed.map((part, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-900">{part.partName}</p>
+                                                <p className="text-[10px] text-gray-400 font-bold">{part.quantity} unit{part.quantity > 1 ? 's' : ''} at ₦{part.unitPrice.toLocaleString()} each</p>
+                                            </div>
+                                            <p className="text-sm font-black text-gray-900">₦{(part.unitPrice * part.quantity).toLocaleString()}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
                     {/* Job History / Timeline */}
                     <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[2.5rem]">
                         <CardHeader className="bg-gray-50/50 border-b border-gray-50 px-10 py-8">
@@ -374,15 +630,20 @@ export default function JobDetailsPage() {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-center col-span-2">
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Service Charge</p>
+                                    <p className="text-xl font-black text-blue-400">₦{(job.serviceCharge || 0).toLocaleString()}</p>
+                                </div>
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-center">
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Invoiced</p>
+                                    <p className="text-lg font-black text-green-400">₦{totalCost.toLocaleString()}</p>
+                                </div>
                                 <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-center">
                                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Paid</p>
-                                    <p className="text-lg font-black text-green-400">₦{totalPaid.toLocaleString()}</p>
-                                </div>
-                                <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-center">
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Balance</p>
-                                    <p className="text-lg font-black text-orange-400">₦{(totalCost - totalPaid).toLocaleString()}</p>
+                                    <p className="text-lg font-black text-white">₦{totalPaid.toLocaleString()}</p>
                                 </div>
                             </div>
+
 
                             <Separator className="bg-white/10" />
 
@@ -478,13 +739,284 @@ export default function JobDetailsPage() {
                                     </div>
                                 )}
                             </div>
-                            <Button className="w-full rounded-xl bg-gray-100 text-gray-900 hover:bg-gray-200 font-bold border-none shadow-none">
-                                Manage Team
-                            </Button>
+                            <Dialog open={isManageTeamOpen} onOpenChange={setIsManageTeamOpen}>
+                                <DialogTrigger asChild>
+                                    <Button className="w-full rounded-xl bg-gray-100 text-gray-900 hover:bg-gray-200 font-bold border-none shadow-none">
+                                        Manage Team
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl">
+                                    <DialogHeader>
+                                        <DialogTitle className="text-xl font-black">Assign Technicians</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-6">
+                                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                                            {availableTechnicians.length === 0 ? (
+                                                <p className="text-sm text-gray-500 text-center py-4 italic">No technicians found.</p>
+                                            ) : (
+                                                availableTechnicians.map((tech) => (
+                                                    <div
+                                                        key={tech.id}
+                                                        onClick={() => toggleTech(tech.id)}
+                                                        className={cn(
+                                                            "flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border-2",
+                                                            selectedTechIds.includes(tech.id)
+                                                                ? "bg-blue-50 border-blue-200"
+                                                                : "bg-gray-50 border-transparent hover:bg-gray-100"
+                                                        )}
+                                                    >
+                                                        <div className="flex items-center gap-4">
+                                                            <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+                                                                <AvatarFallback className="bg-gray-900 text-white font-black text-xs">
+                                                                    {tech.name?.charAt(0) || "T"}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <div>
+                                                                <p className="text-sm font-bold text-gray-900">{tech.name}</p>
+                                                                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Technician</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className={cn(
+                                                            "h-6 w-6 rounded-full flex items-center justify-center border-2 transition-all",
+                                                            selectedTechIds.includes(tech.id)
+                                                                ? "bg-blue-600 border-blue-600"
+                                                                : "border-gray-200"
+                                                        )}>
+                                                            {selectedTechIds.includes(tech.id) && <CheckCircle className="h-4 w-4 text-white" />}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                        <div className="pt-4 flex gap-3">
+                                            <Button variant="ghost" onClick={() => setIsManageTeamOpen(false)} className="flex-1 rounded-xl font-bold">
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                onClick={handleUpdateTeam}
+                                                disabled={updatingTeam}
+                                                className="flex-1 rounded-xl bg-gray-900 hover:bg-black font-bold text-white shadow-lg"
+                                            >
+                                                {updatingTeam ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                                Update Team
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
                         </CardContent>
                     </Card>
                 </div>
             </div>
+
+            {/* Edit Job Details Dialog */}
+            <Dialog open={isEditJobOpen} onOpenChange={setIsEditJobOpen}>
+                <DialogContent className="max-w-2xl rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
+                    <DialogHeader className="p-8 bg-gray-50 border-b border-gray-100">
+                        <DialogTitle className="text-2xl font-black">Edit Job Details</DialogTitle>
+                    </DialogHeader>
+                    <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Vehicle</Label>
+                                <Select
+                                    value={editForm.vehicleId}
+                                    onValueChange={(val) => setEditForm(prev => ({ ...prev, vehicleId: val }))}
+                                >
+                                    <SelectTrigger className="rounded-2xl border-gray-200 h-12 font-bold bg-gray-50/50 w-full">
+                                        <SelectValue placeholder="Select vehicle" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {customerVehicles.map(v => (
+                                            <SelectItem key={v.id} value={v.id}>
+                                                {v.make} {v.model} ({v.licensePlate})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-3">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Service Charge (₦)</Label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-2.5 text-gray-400 font-bold">₦</span>
+                                    <Input
+                                        type="number"
+                                        placeholder="0.00"
+                                        value={editForm.serviceCharge}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, serviceCharge: parseFloat(e.target.value) || 0 }))}
+                                        className="rounded-2xl border-gray-200 h-12 font-bold pl-8 bg-gray-50/50 focus:bg-white transition-colors w-full"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Assign Technicians</Label>
+                            <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                                {availableTechnicians.map((tech) => (
+                                    <div
+                                        key={tech.id}
+                                        onClick={() => toggleTechInEditForm(tech.id)}
+                                        className={cn(
+                                            "flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all border-2",
+                                            editForm.assignedTechnicianIds.includes(tech.id)
+                                                ? "bg-blue-50 border-blue-200"
+                                                : "bg-gray-50 border-transparent hover:bg-gray-100"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <Avatar className="h-8 w-8 border-2 border-white shadow-sm">
+                                                <AvatarFallback className="bg-gray-900 text-white font-black text-[10px]">
+                                                    {tech.name?.charAt(0) || "T"}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <p className="text-sm font-bold text-gray-900">{tech.name}</p>
+                                        </div>
+                                        {editForm.assignedTechnicianIds.includes(tech.id) && <CheckCircle className="h-4 w-4 text-blue-600" />}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+
+                        <div className="space-y-4">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Issue Categories</Label>
+                            <div className="flex flex-wrap gap-2">
+                                {ISSUE_OPTIONS.map((option) => (
+                                    <Badge
+                                        key={option}
+                                        variant={editForm.issues.includes(option) ? "default" : "outline"}
+                                        className={cn(
+                                            "cursor-pointer px-4 py-2 text-xs font-bold transition-all rounded-xl border-2",
+                                            editForm.issues.includes(option)
+                                                ? "bg-gray-900 text-white border-gray-900"
+                                                : "bg-white text-gray-500 border-gray-100 hover:border-gray-200"
+                                        )}
+                                        onClick={() => toggleIssue(option)}
+                                    >
+                                        {option}
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Parts Used</Label>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-xl font-bold border-gray-200 text-[10px] uppercase h-8"
+                                    onClick={() => setShowPartsPicker(!showPartsPicker)}
+                                >
+                                    <Plus className="mr-1 h-3 w-3" /> Add Part
+                                </Button>
+                            </div>
+
+                            {showPartsPicker && (
+                                <div className="p-4 bg-gray-100 rounded-2xl space-y-3">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                                        <Input
+                                            placeholder="Search inventory..."
+                                            className="pl-9 bg-white rounded-xl h-10 border-none shadow-sm"
+                                            value={partSearch}
+                                            onChange={(e) => setPartSearch(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="max-h-40 overflow-y-auto space-y-1">
+                                        {filteredInventory.map(item => (
+                                            <div
+                                                key={item.id}
+                                                className="bg-white p-3 rounded-xl flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                                                onClick={() => addPart(item)}
+                                            >
+                                                <div>
+                                                    <p className="text-xs font-bold text-gray-900">{item.name}</p>
+                                                    <p className="text-[8px] text-gray-400 font-black uppercase">{item.category} · {item.quantity} in stock</p>
+                                                </div>
+                                                <p className="text-xs font-black text-gray-900">₦{(item.sellingPrice || 0).toLocaleString()}</p>
+                                            </div>
+
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="space-y-2">
+                                {editForm.partsUsed.map((part) => (
+                                    <div key={part.partId} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                                        <div className="flex-1">
+                                            <p className="text-xs font-bold text-gray-900">{part.partName}</p>
+                                            <p className="text-[10px] text-gray-400 font-bold">₦{part.unitPrice.toLocaleString()} each</p>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 rounded-full"
+                                                    onClick={() => updatePartQty(part.partId, -1)}
+                                                >
+                                                    <Minus className="h-3 w-3" />
+                                                </Button>
+                                                <span className="text-xs font-black w-4 text-center">{part.quantity}</span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 rounded-full"
+                                                    onClick={() => updatePartQty(part.partId, 1)}
+                                                >
+                                                    <Plus className="h-3 w-3" />
+                                                </Button>
+                                            </div>
+                                            <p className="text-xs font-black w-20 text-right">₦{(part.unitPrice * part.quantity).toLocaleString()}</p>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-50"
+                                                onClick={() => removePart(part.partId)}
+                                            >
+                                                <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Technician Description / Notes</Label>
+                            <Textarea
+                                placeholder="Describe the findings or work needed..."
+                                value={editForm.description}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                className="rounded-2xl border-gray-200 min-h-[150px] font-medium resize-none focus:ring-2 focus:ring-gray-900/5 bg-gray-50/50 focus:bg-white transition-colors p-4"
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter className="p-8 bg-gray-50 border-t border-gray-100 flex gap-4 mt-0">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setIsEditJobOpen(false)}
+                            className="flex-1 rounded-2xl font-bold h-12 hover:bg-white"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleUpdateJobDetails}
+                            disabled={updatingJob}
+                            className="flex-1 rounded-2xl bg-gray-900 hover:bg-black font-bold h-12 shadow-xl shadow-gray-200"
+                        >
+                            {updatingJob ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            Save Changes
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
+

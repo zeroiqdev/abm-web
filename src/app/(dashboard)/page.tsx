@@ -58,16 +58,19 @@ export default function DashboardPage() {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!user?.workshopId) {
+            const isSuperAdmin = user?.role === "super_admin";
+            if (!user?.workshopId && !isSuperAdmin) {
                 setLoading(false);
                 return;
             }
             try {
+                const workshopIdToFetch = isSuperAdmin && !user.workshopId ? undefined : user.workshopId;
+
                 const [jobsData, invoicesData, inventoryData, usersData] = await Promise.all([
-                    firebaseService.getJobs(undefined, user.workshopId),
-                    firebaseService.getInvoices(undefined, user.workshopId),
-                    firebaseService.getInventoryItems(user.workshopId),
-                    firebaseService.getUsersByWorkshop(user.workshopId)
+                    firebaseService.getJobs(undefined, workshopIdToFetch),
+                    firebaseService.getInvoices(undefined, workshopIdToFetch),
+                    firebaseService.getInventoryItems(workshopIdToFetch),
+                    firebaseService.getUsersByWorkshop(workshopIdToFetch)
                 ]);
 
                 // Get all vehicles for accurate mapping

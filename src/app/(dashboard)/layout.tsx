@@ -24,6 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PageLoader } from "@/components/ui/page-loader";
 
+
 export default function DashboardLayout({
     children,
 }: {
@@ -144,6 +145,7 @@ function SidebarContent({ user, pathname, navItems, onLogout }: any) {
                     </div>
                 </div>
             </div>
+
             <Separator />
             <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
                 {navItems.map((item: any) => {

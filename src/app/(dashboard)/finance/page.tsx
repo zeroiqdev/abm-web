@@ -42,15 +42,18 @@ export default function FinanceDashboard() {
 
     useEffect(() => {
         const fetchFinanceData = async () => {
-            if (!user?.workshopId) {
+            const isSuperAdmin = user?.role === "super_admin";
+            if (!user?.workshopId && !isSuperAdmin) {
                 setLoading(false);
                 return;
             }
             try {
+                const workshopIdToFetch = isSuperAdmin && !user.workshopId ? undefined : user.workshopId;
                 const [invoiceData, quoteData] = await Promise.all([
-                    firebaseService.getInvoices(undefined, user.workshopId),
-                    firebaseService.getQuotes(user.workshopId)
+                    firebaseService.getInvoices(undefined, workshopIdToFetch),
+                    firebaseService.getQuotes(workshopIdToFetch)
                 ]);
+                console.log(`[FinanceDashboard] Fetched ${invoiceData.length} invoices, ${quoteData.length} quotes.`);
                 setInvoices(invoiceData);
                 setQuotes(quoteData);
             } catch (error) {
@@ -66,11 +69,16 @@ export default function FinanceDashboard() {
         const start = startOfDay(new Date(dateRange.start));
         const end = endOfDay(new Date(dateRange.end));
 
+        // Helper for robust date interval check
+        const isInRange = (date: Date | any) => {
+            if (!date) return false;
+            const d = date instanceof Date ? date : new Date(date);
+            if (isNaN(d.getTime())) return false;
+            return isWithinInterval(d, { start, end });
+        };
+
         // Filtered Invoices for Period stats (Total Invoiced/Outstanding)
-        const periodInvoices = invoices.filter(inv => {
-            const invDate = inv.createdAt || new Date();
-            return isWithinInterval(invDate, { start, end });
-        });
+        const periodInvoices = invoices.filter(inv => isInRange(inv.createdAt));
 
         const approvedInvoices = periodInvoices.filter(inv =>
             inv.status === 'approved' ||
@@ -85,7 +93,7 @@ export default function FinanceDashboard() {
 
             return acc + inv.paymentHistory.reduce((pSum, p) => {
                 const pDate = p.date ? (p.date instanceof Date ? p.date : new Date(p.date)) : null;
-                if (pDate && isWithinInterval(pDate, { start, end })) {
+                if (pDate && isInRange(pDate)) {
                     return pSum + (p.amount || 0);
                 }
                 return pSum;
@@ -101,10 +109,8 @@ export default function FinanceDashboard() {
         // Filtered lists for the table
         const filteredInvoices = periodInvoices.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
 
-        const filteredQuotes = quotes.filter(q => {
-            const qDate = q.createdAt || new Date();
-            return isWithinInterval(qDate, { start, end });
-        }).sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+        const filteredQuotes = quotes.filter(q => isInRange(q.createdAt))
+            .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
 
         return { invoiced, paid, outstanding, pendingQuotes, draftInvoices, filteredInvoices, filteredQuotes };
     }, [invoices, quotes, dateRange]);
@@ -140,26 +146,50 @@ export default function FinanceDashboard() {
                     <p className="text-gray-500">Overview of workshop's financial performance.</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <div className="flex bg-white/50 backdrop-blur-sm rounded-xl p-1 shadow-sm border border-gray-100">
-                        <div className="relative">
-                            <Calendar className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
-                            <input
-                                type="date"
-                                value={dateRange.start}
-                                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                                className="bg-transparent border-none text-xs font-bold text-gray-600 pl-9 pr-3 h-9 focus:ring-0"
-                            />
+                    <div className="flex items-center gap-2">
+                        <div className="flex bg-white/50 backdrop-blur-sm rounded-xl p-1 shadow-sm border border-gray-100">
+                            <div className="relative">
+                                <Calendar className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                                <input
+                                    type="date"
+                                    value={dateRange.start}
+                                    onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                                    className="bg-transparent border-none text-xs font-bold text-gray-600 pl-9 pr-3 h-9 focus:ring-0"
+                                />
+                            </div>
+                            <div className="w-px h-4 bg-gray-200 self-center mx-1" />
+                            <div className="relative">
+                                <Calendar className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                                <input
+                                    type="date"
+                                    value={dateRange.end}
+                                    onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                                    className="bg-transparent border-none text-xs font-bold text-gray-600 pl-9 pr-3 h-9 focus:ring-0"
+                                />
+                            </div>
                         </div>
-                        <div className="w-px h-4 bg-gray-200 self-center mx-1" />
-                        <div className="relative">
-                            <Calendar className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
-                            <input
-                                type="date"
-                                value={dateRange.end}
-                                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                                className="bg-transparent border-none text-xs font-bold text-gray-600 pl-9 pr-3 h-9 focus:ring-0"
-                            />
-                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDateRange({
+                                start: format(subDays(new Date(), 365), "yyyy-MM-dd"),
+                                end: format(new Date(), "yyyy-MM-dd")
+                            })}
+                            className="rounded-xl h-9 font-bold text-xs"
+                        >
+                            Last Year
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDateRange({
+                                start: "2020-01-01",
+                                end: format(new Date(), "yyyy-MM-dd")
+                            })}
+                            className="rounded-xl h-9 font-bold text-xs text-gray-400 hover:text-gray-900"
+                        >
+                            Reset
+                        </Button>
                     </div>
                     <Button asChild className="rounded-xl shadow-lg shadow-blue-500/20">
                         <Link href="/finance/invoices/new">Create Invoice</Link>

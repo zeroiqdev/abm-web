@@ -21,12 +21,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
                     if (userDoc.exists()) {
                         const data = firebaseService.sanitizeUser(userDoc.data());
-                        const userData: User = {
+                        let userData: User = {
                             ...data,
                             id: userDoc.id,
                             createdAt: data.createdAt?.toDate() || new Date(),
                             updatedAt: data.updatedAt?.toDate() || new Date(),
                         } as User;
+
+                        // Auto-default workshopId if missing but connected workshops exist
+                        if (!userData.workshopId && Array.isArray(userData.connectedWorkshopIds) && userData.connectedWorkshopIds.length > 0) {
+                            userData.workshopId = userData.connectedWorkshopIds[0];
+                        }
+
                         setUser(userData);
                     }
                 } catch (error) {

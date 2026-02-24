@@ -25,6 +25,8 @@ interface AuthState {
     setInitialized: (initialized: boolean) => void;
 }
 
+
+
 export const useAuthStore = create<AuthState>()(
     persist(
         (set) => ({
@@ -79,6 +81,8 @@ export const useAuthStore = create<AuthState>()(
             setFirebaseUser: (user: FirebaseUser | null) => set({ firebaseUser: user }),
             setInitialized: (initialized: boolean) => set({ initialized }),
         }),
+
+
         {
             name: 'auth-storage',
             storage: createJSONStorage(() => localStorage), // Use localStorage for Web
