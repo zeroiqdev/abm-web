@@ -108,19 +108,8 @@ export default function FinanceDashboard() {
 
         const outstanding = invoiced - paid;
 
-        // Calculate Work in Progress (Jobs not yet invoiced but have service charges/parts)
-        const invoicedJobIds = new Set(invoices.map(inv => inv.jobId).filter(Boolean));
-        const wipJobs = jobs.filter(job => !invoicedJobIds.has(job.id) && isInRange(job.createdAt));
-
-        const wipValue = wipJobs.reduce((sum, job) => {
-            const serviceCharge = job.serviceCharge || 0;
-            const partsTotal = (job.partsUsed || []).reduce((pSum: number, part) => pSum + (part.quantity * part.unitPrice), 0);
-            return sum + serviceCharge + partsTotal;
-        }, 0);
-
-
-
         // General counts
+
         const pendingQuotes = quotes.filter(q => q.status === 'pending_approval').length;
         const draftInvoices = invoices.filter(inv => inv.status === 'draft').length;
 
@@ -130,8 +119,9 @@ export default function FinanceDashboard() {
         const filteredQuotes = quotes.filter(q => isInRange(q.createdAt))
             .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
 
-        return { invoiced, paid, outstanding, pendingQuotes, draftInvoices, filteredInvoices, filteredQuotes, wipValue };
+        return { invoiced, paid, outstanding, pendingQuotes, draftInvoices, filteredInvoices, filteredQuotes };
     }, [invoices, quotes, jobs, dateRange]);
+
 
 
     const getStatusStyles = (status: string, invoiceStatus?: string) => {
@@ -236,24 +226,16 @@ export default function FinanceDashboard() {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-white border-none shadow-sm overflow-hidden group hover:shadow-md transition-shadow cursor-pointer" onClick={() => setActiveTab("invoices")}>
+                <Card className="bg-white border-none shadow-sm overflow-hidden group hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-gray-500">Outstanding (Invoiced)</CardTitle>
+                        <CardTitle className="text-sm font-medium text-gray-500">Outstanding</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-orange-600">₦{stats.outstanding.toLocaleString()}</div>
                     </CardContent>
                 </Card>
-
-                <Card className="bg-white border-none shadow-sm overflow-hidden group hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-gray-500">Work in Progress (Uninvoiced)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-blue-600">₦{stats.wipValue.toLocaleString()}</div>
-                    </CardContent>
-                </Card>
             </div>
+
 
 
             {/* Tabs & Table */}
