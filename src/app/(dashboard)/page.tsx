@@ -151,6 +151,16 @@ export default function DashboardPage() {
         );
         const totalInvoiced = approvedInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
         const outstanding = totalInvoiced - totalPaid;
+
+        // Work in progress: Jobs not yet invoiced
+        const invoicedJobIds = new Set(invoices.map(inv => inv.jobId).filter(Boolean));
+        const wipValue = filteredJobs.reduce((sum, job) => {
+            if (invoicedJobIds.has(job.id)) return sum;
+            const serviceCharge = job.serviceCharge || 0;
+            const partsTotal = (job.partsUsed || []).reduce((pSum: number, part) => pSum + (part.quantity * (part.unitPrice || 0)), 0);
+            return sum + serviceCharge + partsTotal;
+        }, 0);
+
         const pendingCount = filteredInvoices.filter(inv => inv.paymentStatus !== 'paid').length;
         const lowStockCount = inventory.filter(item => item.quantity <= item.minStockLevel).length;
 
@@ -159,7 +169,7 @@ export default function DashboardPage() {
         const activeJobs = filteredJobs.filter(j => j.status === 'repairing').length;
         const completedJobsCount = filteredJobs.filter(j => j.status === 'completed').length;
 
-        return { totalPaid, outstanding, pendingCount, lowStockCount, pendingJobs, activeJobs, completedJobsCount };
+        return { totalPaid, outstanding, pendingCount, lowStockCount, pendingJobs, activeJobs, completedJobsCount, wipValue };
     }, [filteredInvoices, invoices, inventory, filteredJobs, dateRange]);
 
     const getCustomerName = (userId: string) => {
@@ -325,7 +335,8 @@ export default function DashboardPage() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 {[
                     { label: "Total Paid", value: `₦${filteredCoreStats.totalPaid.toLocaleString()}` },
-                    { label: "Outstanding", value: `₦${filteredCoreStats.outstanding.toLocaleString()}` },
+                    { label: "Outstanding (Invoiced)", value: `₦${filteredCoreStats.outstanding.toLocaleString()}` },
+                    { label: "Work in Progress", value: `₦${filteredCoreStats.wipValue.toLocaleString()}`, href: "/finance" },
                     { label: "Pending Invoices", value: filteredCoreStats.pendingCount, href: "/finance/invoices?payment=pending" },
                     { label: "Low Stock", value: filteredCoreStats.lowStockCount, href: "/inventory" },
                 ].map((stat, i) => (

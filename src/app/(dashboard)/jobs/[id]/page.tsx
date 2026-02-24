@@ -275,7 +275,7 @@ export default function JobDetailsPage() {
                 partsUsed: editForm.partsUsed.map(({ maxQty, ...rest }) => rest), // Remove maxQty helper
                 assignedTechnicianIds: editForm.assignedTechnicianIds,
                 technicianNames,
-                assignedTechnicianId: editForm.assignedTechnicianIds[0] || null,
+                assignedTechnicianId: editForm.assignedTechnicianIds[0] || undefined,
                 updatedAt: new Date(),
                 type: editForm.issues.includes('Servicing')
                     ? (editForm.issues.length === 1 ? 'service' : 'service_and_repair')
