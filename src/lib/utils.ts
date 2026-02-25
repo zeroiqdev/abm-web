@@ -35,7 +35,7 @@ export function numberToWords(num: number): string {
   let i = 0;
 
   let integerPart = Math.floor(num);
-  let decimalPart = Math.round((num - integerPart) * 100);
+  const decimalPart = Math.round((num - integerPart) * 100);
 
   while (integerPart > 0) {
     if (integerPart % 1000 !== 0) {
