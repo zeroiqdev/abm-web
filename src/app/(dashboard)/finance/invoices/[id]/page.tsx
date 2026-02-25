@@ -338,28 +338,25 @@ export default function InvoiceDetailsPage() {
 
                     <Separator className="bg-gray-100" />
 
-                    <div className="grid grid-cols-2 gap-12">
-                        <div className="space-y-4">
-                            <div>
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Account Details</h3>
-                                <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100 space-y-2">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-500">Bank:</span>
-                                        <span className="font-semibold text-gray-900">MONIEPOINT MFB</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-500">Account Number:</span>
-                                        <span className="font-bold text-gray-900 tracking-wider">5071154448</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-500">Account Name:</span>
-                                        <span className="font-semibold text-gray-900 uppercase">ABDULLATEEF BABA MUSTAPHA</span>
-                                    </div>
+                    <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100">
+                        <div className="flex items-center justify-between flex-wrap gap-4">
+                            <div className="flex items-center gap-6 text-sm">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-gray-400 font-medium">Bank:</span>
+                                    <span className="font-bold text-gray-900">MONIEPOINT MFB</span>
+                                </div>
+                                <span className="text-gray-300">|</span>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-gray-400 font-medium">Acc No:</span>
+                                    <span className="font-black text-gray-900 tracking-wider">5071154448</span>
+                                </div>
+                                <span className="text-gray-300">|</span>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-gray-400 font-medium">Name:</span>
+                                    <span className="font-bold text-gray-900 uppercase">ABDULLATEEF BABA MUSTAPHA</span>
                                 </div>
                             </div>
-                        </div>
-                        <div className="flex flex-col justify-end text-right text-xs text-gray-400">
-                            <p>Thank you for your business!</p>
+                            <span className="text-xs text-gray-400">Thank you for your business!</span>
                         </div>
                     </div>
 
