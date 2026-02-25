@@ -75,6 +75,7 @@ export default function JobDetailsPage() {
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const [partSearch, setPartSearch] = useState("");
     const [showPartsPicker, setShowPartsPicker] = useState(false);
+    const [generatingQuote, setGeneratingQuote] = useState(false);
 
     const [editForm, setEditForm] = useState({
         description: "",
@@ -200,7 +201,7 @@ export default function JobDetailsPage() {
                 updateData.completedAt = new Date();
             }
 
-            await firebaseService.updateJob(job.id, updateData as Partial<Job>);
+            await firebaseService.updateJobStatus(job.id, newStatus, currentUser.name || 'System');
 
             // Update local state
             setJob({
@@ -306,6 +307,95 @@ export default function JobDetailsPage() {
         }
     };
 
+    const handleGenerateQuote = async () => {
+        if (!job || !currentUser?.workshopId) return;
+
+        setGeneratingQuote(true);
+        try {
+            const labourCost = job.serviceCharge || 0;
+            const partsUsed = job.partsUsed || [];
+            const partsCost = partsUsed.reduce((sum, p) => sum + (p.unitPrice * p.quantity), 0);
+            const totalAmount = labourCost + partsCost;
+
+            const quoteItems = [
+                {
+                    id: 'labour-001',
+                    description: 'SERVICE LABOUR/CHARGE',
+                    quantity: 1,
+                    unitPrice: labourCost,
+                    total: labourCost,
+                    isAdditionalWork: false,
+                    addedAt: new Date(),
+                },
+                ...partsUsed.map((p, i) => ({
+                    id: `part-${i + 1}`,
+                    description: p.partName,
+                    quantity: p.quantity,
+                    unitPrice: p.unitPrice,
+                    total: p.quantity * p.unitPrice,
+                    isAdditionalWork: false,
+                    addedAt: new Date(),
+                })),
+            ];
+
+            const quoteData: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'> = {
+                workshopId: currentUser.workshopId,
+                jobId: job.id,
+                userId: job.userId,
+                customerName: customer?.name || "Unknown",
+                customerEmail: customer?.email,
+                customerPhone: customer?.phone,
+                items: quoteItems,
+                subtotal: totalAmount,
+                vatRate: 0,
+                vat: 0,
+                discount: 0,
+                total: totalAmount,
+                status: 'pending_approval',
+                history: [{
+                    action: 'create',
+                    description: 'Manual quote generation from Job details',
+                    userId: currentUser.id,
+                    userName: currentUser.name,
+                    timestamp: new Date()
+                }]
+            };
+
+            const quoteId = await firebaseService.createQuote(quoteData);
+
+            // If job is in 'received' status, move it to 'diagnosed'
+            if (job.status === 'received') {
+                await firebaseService.updateJobStatus(job.id, 'diagnosed', currentUser.name || 'System');
+                setJob({ ...job, status: 'diagnosed' });
+
+                // Add to history locally
+                const historyEntry = {
+                    fromStatus: 'received' as JobStatus,
+                    toStatus: 'diagnosed' as JobStatus,
+                    changedAt: new Date(),
+                    changedBy: currentUser.id,
+                    changedByName: currentUser.name || "System"
+                };
+                setJob(prev => prev ? {
+                    ...prev,
+                    status: 'diagnosed',
+                    statusHistory: [historyEntry, ...(prev.statusHistory || [])]
+                } : null);
+            }
+
+            // Re-fetch quotes to update UI
+            const newQuotes = await firebaseService.getQuotes(currentUser.workshopId);
+            setQuotes(newQuotes.filter(q => q.jobId === job.id));
+
+            toast.success('Quote generated successfully!');
+        } catch (error) {
+            console.error('Error generating quote:', error);
+            toast.error('Failed to generate quote.');
+        } finally {
+            setGeneratingQuote(false);
+        }
+    };
+
 
 
     const toggleIssue = (issue: string) => {
@@ -339,19 +429,35 @@ export default function JobDetailsPage() {
     }, [inventoryItems, partSearch, editForm.partsUsed]);
 
     const addPart = (item: InventoryItem) => {
-        setEditForm(prev => ({
-            ...prev,
-            partsUsed: [
-                ...prev.partsUsed,
-                {
-                    partId: item.id,
-                    partName: item.name,
-                    quantity: 1,
-                    unitPrice: item.sellingPrice || item.unitPrice,
-                    maxQty: item.quantity,
-                }
-            ]
-        }));
+        // Enforce stock limit
+        if (item.quantity <= 0) {
+            toast.error(`"${item.name}" is out of stock.`);
+            return;
+        }
+
+        setEditForm(prev => {
+            const existing = prev.partsUsed.find(p => p.partId === item.id);
+            if (existing && existing.quantity >= item.quantity) {
+                toast.error(`Cannot add more "${item.name}". Max stock reached.`);
+                return prev;
+            }
+
+            return {
+                ...prev,
+                partsUsed: existing
+                    ? prev.partsUsed.map(p => p.partId === item.id ? { ...p, quantity: p.quantity + 1 } : p)
+                    : [
+                        ...prev.partsUsed,
+                        {
+                            partId: item.id,
+                            partName: item.name,
+                            quantity: 1,
+                            unitPrice: item.sellingPrice || item.unitPrice,
+                            maxQty: item.quantity,
+                        }
+                    ]
+            };
+        });
         setPartSearch("");
         setShowPartsPicker(false);
     };
@@ -362,6 +468,10 @@ export default function JobDetailsPage() {
             partsUsed: prev.partsUsed.map(p => {
                 if (p.partId !== partId) return p;
                 const newQty = Math.max(1, Math.min(p.maxQty || 999, p.quantity + delta));
+                if (delta > 0 && p.maxQty && p.quantity >= p.maxQty) {
+                    toast.error(`Max available stock reached for ${p.partName}`);
+                    return p;
+                }
                 return { ...p, quantity: newQty };
             })
         }));
@@ -397,8 +507,13 @@ export default function JobDetailsPage() {
         );
     }
 
-    const totalCost = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+    const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
     const totalPaid = invoices.reduce((sum, inv) => sum + (inv.amountPaid || 0), 0);
+
+    const partsCost = (job.partsUsed || []).reduce((sum, p) => sum + (p.unitPrice * p.quantity), 0);
+    const estimatedTotal = (job.serviceCharge || 0) + partsCost;
+
+    const totalCost = invoices.length > 0 ? totalInvoiced : estimatedTotal;
 
     return (
         <div className="p-8 space-y-8 animate-in fade-in duration-500">
@@ -432,6 +547,18 @@ export default function JobDetailsPage() {
                     <Button variant="outline" className="rounded-xl font-bold border-gray-200" onClick={() => setIsEditJobOpen(true)}>
                         Edit Job
                     </Button>
+
+                    {quotes.length === 0 && (
+                        <Button
+                            className="rounded-xl bg-gray-900 hover:bg-black font-bold text-white shadow-md transition-all active:scale-95"
+                            onClick={handleGenerateQuote}
+                            disabled={generatingQuote}
+                        >
+                            {generatingQuote ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
+                            Generate Quote
+                        </Button>
+                    )}
+
                     <Button variant="outline" className="rounded-xl font-bold border-gray-200">
                         Print Job Card
                     </Button>
@@ -635,7 +762,7 @@ export default function JobDetailsPage() {
                                     <p className="text-xl font-black text-blue-400">₦{(job.serviceCharge || 0).toLocaleString()}</p>
                                 </div>
                                 <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-center">
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Invoiced</p>
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Cost</p>
                                     <p className="text-lg font-black text-green-400">₦{totalCost.toLocaleString()}</p>
                                 </div>
                                 <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-center">
@@ -839,13 +966,13 @@ export default function JobDetailsPage() {
                             <div className="space-y-3">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Service Charge (₦)</Label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-2.5 text-gray-400 font-bold">₦</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₦</span>
                                     <Input
                                         type="number"
                                         placeholder="0.00"
                                         value={editForm.serviceCharge}
                                         onChange={(e) => setEditForm(prev => ({ ...prev, serviceCharge: parseFloat(e.target.value) || 0 }))}
-                                        className="rounded-2xl border-gray-200 h-12 font-bold pl-8 bg-gray-50/50 focus:bg-white transition-colors w-full"
+                                        className="rounded-2xl border-gray-200 h-12 font-bold pl-9 bg-gray-50/50 focus:bg-white transition-colors w-full"
                                     />
                                 </div>
                             </div>

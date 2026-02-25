@@ -124,6 +124,8 @@ export default function NewInvoicePage() {
                 quantity: 1,
                 unitPrice: item.unitPrice,
                 total: item.unitPrice,
+                inventoryItemId: item.id,
+                maxQty: item.quantity
             }));
 
         setInvoiceItems([...invoiceItems, ...itemsToAdd]);
@@ -148,6 +150,18 @@ export default function NewInvoicePage() {
         setCustomerEmail(customer.email || "");
         setIsCustomerOpen(false);
         setCustomerSearch("");
+    };
+
+    const handleUpdateItemQty = (index: number, delta: number) => {
+        setInvoiceItems(prev => prev.map((item, i) => {
+            if (i !== index) return item;
+            const newQty = Math.max(1, item.quantity + delta);
+            if (delta > 0 && item.maxQty !== undefined && item.quantity >= item.maxQty) {
+                toast.error(`Max available stock for "${item.description}" is ${item.maxQty}`);
+                return item;
+            }
+            return { ...item, quantity: newQty, total: newQty * item.unitPrice };
+        }));
     };
 
     const handleRemoveItem = (index: number) => {
@@ -330,7 +344,28 @@ export default function NewInvoicePage() {
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <span className="font-semibold">₦{item.total.toLocaleString()}</span>
+                                        <div className="flex items-center border rounded-lg overflow-hidden h-9">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-full w-8 rounded-none hover:bg-gray-100"
+                                                onClick={() => handleUpdateItemQty(index, -1)}
+                                            >
+                                                <Plus className="h-3 w-3 rotate-45" />
+                                            </Button>
+                                            <div className="w-10 text-center text-sm font-bold bg-white h-full flex items-center justify-center border-x">
+                                                {item.quantity}
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-full w-8 rounded-none hover:bg-gray-100"
+                                                onClick={() => handleUpdateItemQty(index, 1)}
+                                            >
+                                                <Plus className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                        <span className="font-semibold w-24 text-right">₦{item.total.toLocaleString()}</span>
                                         <Button
                                             variant="ghost"
                                             size="icon"

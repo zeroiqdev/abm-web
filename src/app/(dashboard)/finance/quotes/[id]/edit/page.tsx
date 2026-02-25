@@ -27,6 +27,8 @@ interface LineItem {
     description: string;
     quantity: number;
     unitPrice: number;
+    inventoryItemId?: string;
+    maxQty?: number;
 }
 
 export default function EditQuotePage() {
@@ -57,12 +59,17 @@ export default function EditQuotePage() {
                 if (quoteData) {
                     setQuote(quoteData);
                     setLineItems(
-                        quoteData.items.map(item => ({
-                            id: item.id || Math.random().toString(),
-                            description: item.description,
-                            quantity: item.quantity,
-                            unitPrice: item.unitPrice,
-                        }))
+                        quoteData.items.map(item => {
+                            const invItem = inventoryData.find(inv => inv.name === item.description);
+                            return {
+                                id: item.id || Math.random().toString(),
+                                description: item.description,
+                                quantity: item.quantity,
+                                unitPrice: item.unitPrice,
+                                inventoryItemId: invItem?.id,
+                                maxQty: invItem?.quantity
+                            };
+                        })
                     );
                     setVatRate(quoteData.vatRate || 0);
                     setDiscount(quoteData.discount || 0);
@@ -87,7 +94,19 @@ export default function EditQuotePage() {
     };
 
     const handleUpdateItem = (itemId: string, field: keyof LineItem, value: string | number) => {
-        setLineItems(lineItems.map(item => item.id === itemId ? { ...item, [field]: value } : item));
+        setLineItems(lineItems.map(item => {
+            if (item.id !== itemId) return item;
+
+            if (field === 'quantity') {
+                const newQty = typeof value === 'string' ? parseInt(value) || 0 : value;
+                if (item.maxQty !== undefined && newQty > item.maxQty) {
+                    toast.error(`Max available stock for "${item.description}" is ${item.maxQty}`);
+                    return item;
+                }
+            }
+
+            return { ...item, [field]: value };
+        }));
     };
 
     const toggleInventorySelection = (itemId: string) => {
@@ -108,6 +127,8 @@ export default function EditQuotePage() {
                 description: item.name,
                 quantity: 1,
                 unitPrice: item.unitPrice,
+                inventoryItemId: item.id,
+                maxQty: item.quantity
             }));
 
         setLineItems([...lineItems, ...itemsToAdd]);

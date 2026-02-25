@@ -242,6 +242,8 @@ export interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  inventoryItemId?: string;
+  maxQty?: number;
 }
 
 export interface InventoryItem {

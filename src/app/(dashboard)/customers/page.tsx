@@ -145,8 +145,12 @@ export default function CustomersPage() {
                             </TableRow>
                         ) : (
                             filteredCustomers.map((customer) => (
-                                <TableRow key={customer.id} className="hover:bg-gray-50/50 transition-colors">
-                                    <TableCell className="font-medium pl-8">{customer.name || "—"}</TableCell>
+                                <TableRow key={customer.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => router.push(`/customers/${customer.id}`)}>
+                                    <TableCell className="font-medium pl-8">
+                                        <Link href={`/customers/${customer.id}`} className="hover:underline">
+                                            {customer.name || "—"}
+                                        </Link>
+                                    </TableCell>
                                     <TableCell>{customer.phone || "—"}</TableCell>
                                     <TableCell className="text-gray-500">{customer.email || "—"}</TableCell>
                                     <TableCell className="text-gray-500">

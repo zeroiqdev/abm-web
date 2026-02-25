@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { Printer, CheckCircle, ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn, numberToWords } from "@/lib/utils";
 import { PageLoader } from "@/components/ui/page-loader";
 import { toast } from "sonner";
 import {
@@ -178,7 +178,7 @@ export default function InvoiceDetailsPage() {
                             <Badge
                                 variant="outline"
                                 className={cn(
-                                    "px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest border shadow-sm",
+                                    "px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest border shadow-sm no-print",
                                     getStatusStyles(invoice.status, invoice.invoiceStatus)
                                 )}>
                                 {invoice.paymentStatus?.toUpperCase() || 'PENDING'}
@@ -186,9 +186,12 @@ export default function InvoiceDetailsPage() {
                         </div>
                         <p className="text-sm text-gray-500 font-mono">#{invoice.id}</p>
                     </div>
-                    <div className="text-right">
-                        <h2 className="font-bold text-xl text-gray-900">ABM Motors</h2>
-                        <p className="text-sm text-gray-500">Workshop Financial Document</p>
+                    <div className="text-right flex flex-col items-end">
+                        <img
+                            src="/media__1772030792170.png"
+                            alt="ABM TEK Logo"
+                            className="h-16 w-auto mb-2 bg-white"
+                        />
                     </div>
                 </CardHeader>
 
@@ -218,7 +221,7 @@ export default function InvoiceDetailsPage() {
                                         <span className="text-gray-500">Due Date:</span>
                                         <span className="font-medium text-orange-600">{invoice.dueDate ? format(invoice.dueDate, 'MMM d, yyyy') : 'N/A'}</span>
                                     </div>
-                                    <div className="flex justify-between text-sm">
+                                    <div className="flex justify-between text-sm no-print">
                                         <span className="text-gray-500">Payment:</span>
                                         <Badge variant="outline" className={cn(
                                             "capitalize text-[10px] font-bold px-2 py-0.5 border shadow-sm",
@@ -322,7 +325,40 @@ export default function InvoiceDetailsPage() {
                                         </div>
                                     </div>
                                 )}
+                                <div className="pt-6 border-t mt-6">
+                                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Amount in Words</h4>
+                                    <p className="text-sm font-medium text-gray-700">
+                                        {numberToWords(invoice.total)}
+                                    </p>
+                                </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <Separator className="bg-gray-100" />
+
+                    <div className="grid grid-cols-2 gap-12">
+                        <div className="space-y-4">
+                            <div>
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Account Details</h3>
+                                <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100 space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-500">Bank:</span>
+                                        <span className="font-semibold text-gray-900">MONIEPOINT MFB</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-500">Account Number:</span>
+                                        <span className="font-bold text-gray-900 tracking-wider">5071154448</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-500">Account Name:</span>
+                                        <span className="font-semibold text-gray-900 uppercase">ABDULLATEEF BABA MUSTAPHA</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex flex-col justify-end text-right text-xs text-gray-400">
+                            <p>Thank you for your business!</p>
                         </div>
                     </div>
 
@@ -357,9 +393,21 @@ export default function InvoiceDetailsPage() {
             <style jsx global>{`
                 @media print {
                     .no-print { display: none !important; }
-                    body { background: white !important; }
-                    .Card { border: none !important; box-shadow: none !important; }
+                    body { background: white !important; margin: 0; padding: 0; font-size: 11px; }
+                    .Card { border: none !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; }
+                    .CardHeader { padding-bottom: 0.5rem !important; }
+                    .CardContent { padding-top: 0.5rem !important; }
+                    .Separator { margin: 1rem 0 !important; }
+                    table { font-size: 11px !important; }
+                    th, td { padding: 0.5rem !important; }
                     main { padding: 0 !important; }
+                    .shadow-lg { box-shadow: none !important; }
+                    .border { border: 1px solid #eee !important; }
+                    @page {
+                      margin: 0.5cm;
+                      size: auto;
+                    }
+                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                 }
             `}</style>
         </div>

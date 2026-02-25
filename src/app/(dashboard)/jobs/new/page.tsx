@@ -15,6 +15,7 @@ import { ArrowLeft, Save, Loader2, Plus, Minus, Search, Trash2, Package } from "
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ISSUE_OPTIONS = [
     'Servicing',
@@ -51,6 +52,8 @@ export default function CreateJobPage() {
     const [selectedParts, setSelectedParts] = useState<(PartUsed & { maxQty: number })[]>([]);
     const [partSearch, setPartSearch] = useState("");
     const [showPartsPicker, setShowPartsPicker] = useState(false);
+    const [partMode, setPartMode] = useState<"inventory" | "external">("inventory");
+    const [externalPart, setExternalPart] = useState({ name: "", quantity: "1", unitPrice: "" });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -110,16 +113,32 @@ export default function CreateJobPage() {
     }, [inventoryItems, partSearch, selectedParts]);
 
     const addPart = (item: InventoryItem) => {
-        setSelectedParts(prev => [
-            ...prev,
-            {
-                partId: item.id,
-                partName: item.name,
-                quantity: 1,
-                unitPrice: item.sellingPrice || item.unitPrice,
-                maxQty: item.quantity,
-            },
-        ]);
+        // Enforce stock limit
+        if (item.quantity <= 0) {
+            toast.error(`"${item.name}" is out of stock.`);
+            return;
+        }
+
+        setSelectedParts(prev => {
+            const existing = prev.find(p => p.partId === item.id);
+            if (existing && existing.quantity >= item.quantity) {
+                toast.error(`Cannot add more "${item.name}". Max stock reached.`);
+                return prev;
+            }
+
+            return existing
+                ? prev.map(p => p.partId === item.id ? { ...p, quantity: p.quantity + 1 } : p)
+                : [
+                    ...prev,
+                    {
+                        partId: item.id,
+                        partName: item.name,
+                        quantity: 1,
+                        unitPrice: item.sellingPrice || item.unitPrice,
+                        maxQty: item.quantity,
+                    },
+                ];
+        });
         setPartSearch("");
     };
 
@@ -128,6 +147,10 @@ export default function CreateJobPage() {
             prev.map(p => {
                 if (p.partId !== partId) return p;
                 const newQty = Math.max(1, Math.min(p.maxQty, p.quantity + delta));
+                if (delta > 0 && p.quantity >= p.maxQty) {
+                    toast.error(`Max available stock reached for ${p.partName}`);
+                    return p;
+                }
                 return { ...p, quantity: newQty };
             })
         );
@@ -139,12 +162,42 @@ export default function CreateJobPage() {
 
     // Totals
     const labourCost = parseFloat(serviceCharge || "0");
-    const partsCost = selectedParts.reduce((sum, p) => sum + p.unitPrice * p.quantity, 0);
+    const partsCost = selectedParts.reduce((sum, p) => sum + p.unitPrice * (p.quantity || 1), 0);
     const estimatedTotal = labourCost + partsCost;
 
+    const addExternalPart = () => {
+        if (!externalPart.name || !externalPart.unitPrice) {
+            toast.error("Please enter part name and price");
+            return;
+        }
+
+        const quantity = parseInt(externalPart.quantity) || 1;
+        const unitPrice = parseFloat(externalPart.unitPrice);
+
+        if (quantity <= 0 || unitPrice < 0) {
+            toast.error("Invalid quantity or price");
+            return;
+        }
+
+        setSelectedParts(prev => [
+            ...prev,
+            {
+                partId: "EXTERNAL",
+                partName: externalPart.name,
+                quantity,
+                unitPrice,
+                maxQty: 999999, // Practically unlimited
+            },
+        ]);
+
+        setExternalPart({ name: "", quantity: "1", unitPrice: "" });
+        setPartMode("inventory"); // Reset to inventory or stay? stay for now maybe? user said mobile app experience.
+        // In mobile app it switches mode.
+    };
+
     const handleCreateJob = async () => {
-        if (!user?.workshopId || !selectedCustomerId || !selectedVehicleId || !description || !serviceCharge) {
-            toast.error("Please fill in all required fields");
+        if (!user?.workshopId || !selectedCustomerId || !selectedVehicleId || !description) {
+            toast.error("Please fill in all required fields (Customer, Vehicle, Description)");
             return;
         }
 
@@ -236,12 +289,30 @@ export default function CreateJobPage() {
     };
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto pb-20 pt-8">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                    <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <h2 className="text-3xl font-bold tracking-tight">New Job Request</h2>
+        <div className="space-y-6 max-w-5xl mx-auto pb-20 pt-10 px-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-xl hover:bg-gray-100 transition-colors">
+                        <ArrowLeft className="h-5 w-5" />
+                    </Button>
+                    <div>
+                        <h2 className="text-2xl font-black tracking-tight text-gray-900">New Job Request</h2>
+                        <p className="text-sm text-gray-500 font-medium tracking-tight">Create a new service or repair job</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3">
+                    <Button variant="outline" onClick={() => router.back()} className="rounded-xl font-bold border-gray-200">
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleCreateJob}
+                        disabled={loading}
+                        className="rounded-xl bg-gray-900 hover:bg-black font-bold text-white shadow-lg px-8"
+                    >
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                        {loading ? "Creating..." : "Save Job"}
+                    </Button>
+                </div>
             </div>
 
             <div className="grid grid-cols-3 gap-6">
@@ -314,42 +385,96 @@ export default function CreateJobPage() {
                         <CardContent className="space-y-4">
                             {/* Parts Picker */}
                             {showPartsPicker && (
-                                <div className="border rounded-lg p-3 space-y-3 bg-gray-50">
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                                        <Input
-                                            placeholder="Search inventory..."
-                                            className="pl-9 bg-white"
-                                            value={partSearch}
-                                            onChange={(e) => setPartSearch(e.target.value)}
-                                            autoFocus
-                                        />
-                                    </div>
-                                    <div className="max-h-48 overflow-y-auto space-y-1">
-                                        {filteredInventory.length === 0 ? (
-                                            <p className="text-sm text-gray-500 text-center py-4">
-                                                {partSearch ? "No matching items" : "No available inventory items"}
-                                            </p>
-                                        ) : (
-                                            filteredInventory.map(item => (
-                                                <button
-                                                    key={item.id}
-                                                    className="w-full flex items-center justify-between p-2 rounded-md hover:bg-white transition-colors text-left"
-                                                    onClick={() => addPart(item)}
-                                                >
-                                                    <div>
-                                                        <p className="text-sm font-medium">{item.name}</p>
-                                                        <p className="text-xs text-gray-500">
-                                                            {item.category} · {item.quantity} in stock
-                                                        </p>
+                                <div className="border rounded-lg p-3 space-y-4 bg-gray-50">
+                                    <Tabs value={partMode} onValueChange={(v) => setPartMode(v as any)} className="w-full">
+                                        <TabsList className="grid w-full grid-cols-2">
+                                            <TabsTrigger value="inventory">From Inventory</TabsTrigger>
+                                            <TabsTrigger value="external">External Part</TabsTrigger>
+                                        </TabsList>
+
+                                        <TabsContent value="inventory" className="space-y-3 pt-4">
+                                            <div className="relative">
+                                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                                                <Input
+                                                    placeholder="Search inventory..."
+                                                    className="pl-9 bg-white"
+                                                    value={partSearch}
+                                                    onChange={(e) => setPartSearch(e.target.value)}
+                                                    autoFocus
+                                                />
+                                            </div>
+                                            <div className="max-h-48 overflow-y-auto space-y-1">
+                                                {filteredInventory.length === 0 ? (
+                                                    <p className="text-sm text-gray-500 text-center py-4">
+                                                        {partSearch ? "No matching items" : "No available inventory items"}
+                                                    </p>
+                                                ) : (
+                                                    filteredInventory.map(item => (
+                                                        <button
+                                                            key={item.id}
+                                                            className="w-full flex items-center justify-between p-2 rounded-md hover:bg-white transition-colors text-left"
+                                                            onClick={() => addPart(item)}
+                                                        >
+                                                            <div>
+                                                                <p className="text-sm font-medium">{item.name}</p>
+                                                                <p className="text-xs text-gray-500">
+                                                                    {item.category} · {item.quantity} in stock
+                                                                </p>
+                                                            </div>
+                                                            <span className="text-sm font-semibold">
+                                                                ₦{(item.sellingPrice || item.unitPrice).toLocaleString()}
+                                                            </span>
+                                                        </button>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </TabsContent>
+
+                                        <TabsContent value="external" className="space-y-3 pt-4">
+                                            <div className="grid gap-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="ext-name">Part Name</Label>
+                                                    <Input
+                                                        id="ext-name"
+                                                        placeholder="Enter part name..."
+                                                        className="bg-white"
+                                                        value={externalPart.name}
+                                                        onChange={(e) => setExternalPart({ ...externalPart, name: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="ext-price">Unit Price</Label>
+                                                        <div className="relative">
+                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">₦</span>
+                                                            <Input
+                                                                id="ext-price"
+                                                                type="number"
+                                                                placeholder="0.00"
+                                                                className="pl-9 bg-white font-bold h-11 rounded-xl border-gray-200"
+                                                                value={externalPart.unitPrice}
+                                                                onChange={(e) => setExternalPart({ ...externalPart, unitPrice: e.target.value })}
+                                                            />
+                                                        </div>
                                                     </div>
-                                                    <span className="text-sm font-semibold">
-                                                        ₦{(item.sellingPrice || item.unitPrice).toLocaleString()}
-                                                    </span>
-                                                </button>
-                                            ))
-                                        )}
-                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="ext-qty">Quantity</Label>
+                                                        <Input
+                                                            id="ext-qty"
+                                                            type="number"
+                                                            min="1"
+                                                            className="bg-white"
+                                                            value={externalPart.quantity}
+                                                            onChange={(e) => setExternalPart({ ...externalPart, quantity: e.target.value })}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <Button onClick={addExternalPart} className="w-full">
+                                                    Add External Part
+                                                </Button>
+                                            </div>
+                                        </TabsContent>
+                                    </Tabs>
                                 </div>
                             )}
 
@@ -513,11 +638,13 @@ export default function CreateJobPage() {
                                 <span className="text-gray-400">Estimated Total</span>
                                 <span className="text-xl font-bold">₦{estimatedTotal.toLocaleString()}</span>
                             </div>
-                            <Separator className="bg-gray-700" />
-                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Automatic Action</p>
-                            <p className="text-xs text-gray-300 leading-relaxed italic">
-                                Saving this job will automatically generate a quote with wait for approval status.
-                            </p>
+                            <Separator className="bg-white/10" />
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Automatic Action</p>
+                                <p className="text-sm font-bold text-white/70 leading-relaxed">
+                                    Saving this job will automatically generate a quote with wait for approval status.
+                                </p>
+                            </div>
                         </CardContent>
                         <CardFooter>
                             <Button

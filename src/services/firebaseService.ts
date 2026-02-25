@@ -53,6 +53,41 @@ const uploadImageToMethods = async (file: File | Blob, path: string): Promise<st
 };
 
 
+// Helper for inventory adjustment
+const adjustStock = async (items: { partId?: string; inventoryItemId?: string; quantity: number }[], workshopId: string, type: 'deduct' | 'restore') => {
+  const batch = writeBatch(db);
+  for (const item of items) {
+    const itemId = item.partId || item.inventoryItemId;
+    if (!itemId) continue;
+
+    const itemRef = doc(db, 'inventory', itemId);
+    const itemSnap = await getDoc(itemRef);
+    if (!itemSnap.exists()) continue;
+
+    const currentQty = itemSnap.data().quantity || 0;
+    const newQty = type === 'deduct'
+      ? Math.max(0, currentQty - item.quantity)
+      : currentQty + item.quantity;
+
+    batch.update(itemRef, {
+      quantity: newQty,
+      updatedAt: Timestamp.now()
+    });
+
+    // Log transaction
+    const transRef = doc(collection(db, 'stock_transactions'));
+    batch.set(transRef, {
+      workshopId,
+      itemId,
+      type: type === 'deduct' ? 'stock_out' : 'stock_in',
+      quantity: item.quantity,
+      reason: `Automated ${type} from document update`,
+      createdAt: Timestamp.now(),
+    });
+  }
+  await batch.commit();
+};
+
 export const firebaseService = {
   async sendPasswordResetEmail(email: string): Promise<void> {
     // Branded email via client is not possible because we can't generate
@@ -230,10 +265,21 @@ export const firebaseService = {
       status: cleanInvoice.status || 'draft',
       createdAt: Timestamp.now(),
     });
+
+    // Deduct stock for inventory items
+    const inventoryItems = invoice.items.filter(item => item.inventoryItemId);
+    if (inventoryItems.length > 0) {
+      await adjustStock(inventoryItems, invoice.workshopId, 'deduct');
+    }
+
     return invoiceId;
   },
 
   async updateInvoice(invoiceId: string, data: Partial<Invoice>): Promise<void> {
+    const docRef = doc(db, 'invoices', invoiceId);
+    const oldInvoiceSnap = await getDoc(docRef);
+    const oldInvoice = oldInvoiceSnap.data() as Invoice;
+
     const updateData: any = { ...data };
     if (updateData.dueDate) updateData.dueDate = Timestamp.fromDate(updateData.dueDate);
     if (updateData.paymentDate) updateData.paymentDate = Timestamp.fromDate(updateData.paymentDate);
@@ -244,7 +290,24 @@ export const firebaseService = {
         date: Timestamp.fromDate(record.date),
       }));
     }
-    await updateDoc(doc(db, 'invoices', invoiceId), updateData);
+
+    // Handle items delta
+    if (data.items && oldInvoice.items) {
+      const oldInvItems = oldInvoice.items.filter(i => i.inventoryItemId);
+      const newInvItems = data.items.filter(i => i.inventoryItemId);
+      await adjustStock(oldInvItems, oldInvoice.workshopId, 'restore');
+      await adjustStock(newInvItems, oldInvoice.workshopId, 'deduct');
+
+      // logic: if invoice edited after full amount has been paid with paid status 
+      // then if extra invoice items added it should change status to partially paid
+      const newTotal = data.total ?? oldInvoice.total;
+      const amountPaid = data.amountPaid ?? oldInvoice.amountPaid ?? 0;
+      if (oldInvoice.paymentStatus === 'paid' && newTotal > amountPaid) {
+        updateData.paymentStatus = 'partially_paid';
+      }
+    }
+
+    await updateDoc(docRef, updateData);
   },
 
   async approveInvoice(invoiceId: string, approvedBy: string, explicitDueDate?: Date, isOfflineOverride: boolean = false): Promise<void> {
@@ -401,6 +464,20 @@ export const firebaseService = {
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
+
+    // In quotes, we don't necessarily deduct stock until approved/converted, 
+    // BUT the user request says "synchronize", implying quotes should also track.
+    // However, common logic is to only deduct on invoice. 
+    // Let's stick to the user's specific complaint that they can add more than in stock.
+    // The UI handles the validation. We might not want to deduct from DB on draft quotes 
+    // to avoid locking stock that isn't paid for yet.
+    // User requested "In real time accurately update inventory stock values when items are added to a job/ quote/ invoice".
+    // So we will deduct on quote creation too.
+    const invItems = (quote.items || []).filter(i => (i as any).inventoryItemId);
+    if (invItems.length > 0) {
+      await adjustStock(invItems as any, quote.workshopId, 'deduct');
+    }
+
     return docRef.id;
   },
 
@@ -464,6 +541,16 @@ export const firebaseService = {
 
   async updateQuote(quoteId: string, data: Partial<Quote>): Promise<void> {
     const docRef = doc(db, 'quotes', quoteId);
+    const oldQuoteSnap = await getDoc(docRef);
+    const oldQuote = oldQuoteSnap.data() as Quote;
+
+    if (data.items && oldQuote.items) {
+      const oldInvItems = oldQuote.items.filter(i => (i as any).inventoryItemId);
+      const newInvItems = data.items.filter(i => (i as any).inventoryItemId);
+      await adjustStock(oldInvItems as any, oldQuote.workshopId, 'restore');
+      await adjustStock(newInvItems as any, oldQuote.workshopId, 'deduct');
+    }
+
     await updateDoc(docRef, {
       ...data,
       updatedAt: Timestamp.now(),
@@ -575,14 +662,54 @@ export const firebaseService = {
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
+
+    // Deduct stock if parts are used
+    if (job.partsUsed && job.partsUsed.length > 0) {
+      await adjustStock(job.partsUsed, job.workshopId, 'deduct');
+    }
+
     return docRef.id;
   },
 
   async updateJob(jobId: string, data: Partial<Job>): Promise<void> {
     const docRef = doc(db, 'jobs', jobId);
+    const oldJobSnap = await getDoc(docRef);
+    const oldJob = oldJobSnap.data() as Job;
+
+    // Handle parts delta
+    if (data.partsUsed && oldJob.partsUsed) {
+      // Simplest: restore all old, deduct all new
+      // More robust: calculate diff. Let's do restore all/deduct all for safety.
+      await adjustStock(oldJob.partsUsed, oldJob.workshopId, 'restore');
+      await adjustStock(data.partsUsed, oldJob.workshopId, 'deduct');
+    } else if (data.partsUsed) {
+      await adjustStock(data.partsUsed, oldJob.workshopId, 'deduct');
+    }
+
     await updateDoc(docRef, {
       ...data,
       updatedAt: Timestamp.now(),
+    });
+  },
+
+  async updateJobStatus(jobId: string, status: string, changedByName: string): Promise<void> {
+    const docRef = doc(db, 'jobs', jobId);
+    const jobSnap = await getDoc(docRef);
+    if (!jobSnap.exists()) throw new Error('Job not found');
+
+    const jobData = jobSnap.data();
+    const historyEntry = {
+      fromStatus: jobData.status,
+      toStatus: status,
+      changedAt: Timestamp.now(),
+      changedByName,
+    };
+
+    await updateDoc(docRef, {
+      status,
+      statusHistory: arrayUnion(historyEntry),
+      updatedAt: Timestamp.now(),
+      ...(status === 'completed' ? { completedAt: Timestamp.now() } : {}),
     });
   },
 
