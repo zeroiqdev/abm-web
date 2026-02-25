@@ -364,23 +364,25 @@ export default function JobDetailsPage() {
             const quoteId = await firebaseService.createQuote(quoteData);
 
             // If job is in 'received' status, move it to 'diagnosed'
-            if (job.status === 'received') {
-                await firebaseService.updateJobStatus(job.id, 'diagnosed', currentUser.name || 'System');
-                setJob({ ...job, status: 'diagnosed' });
-
-                // Add to history locally
-                const historyEntry = {
-                    fromStatus: 'received' as JobStatus,
-                    toStatus: 'diagnosed' as JobStatus,
-                    changedAt: new Date(),
-                    changedBy: currentUser.id,
-                    changedByName: currentUser.name || "System"
-                };
-                setJob(prev => prev ? {
-                    ...prev,
-                    status: 'diagnosed',
-                    statusHistory: [historyEntry, ...(prev.statusHistory || [])]
-                } : null);
+            const currentStatus = (job.status || '').toLowerCase().trim();
+            if (currentStatus === 'received') {
+                try {
+                    await firebaseService.updateJobStatus(job.id, 'diagnosed', currentUser.name || 'System');
+                    setJob(prev => prev ? {
+                        ...prev,
+                        status: 'diagnosed',
+                        statusHistory: [{
+                            fromStatus: 'received' as JobStatus,
+                            toStatus: 'diagnosed' as JobStatus,
+                            changedAt: new Date(),
+                            changedBy: currentUser.id,
+                            changedByName: currentUser.name || "System"
+                        }, ...(prev.statusHistory || [])]
+                    } : null);
+                } catch (statusErr) {
+                    console.error('Error updating job status to diagnosed:', statusErr);
+                    toast.error('Quote created but failed to update job status.');
+                }
             }
 
             // Re-fetch quotes to update UI

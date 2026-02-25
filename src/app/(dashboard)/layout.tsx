@@ -72,7 +72,7 @@ export default function DashboardLayout({
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden">
             {/* Desktop Sidebar */}
-            <aside className="hidden w-64 flex-col border-r bg-white md:flex">
+            <aside className="hidden w-64 flex-col border-r bg-white md:flex no-print">
                 <SidebarContent
                     user={user}
                     pathname={pathname}
@@ -87,7 +87,7 @@ export default function DashboardLayout({
             {/* Main Content Area */}
             <div className="flex flex-1 flex-col overflow-hidden">
                 {/* Mobile Header */}
-                <header className="flex h-16 items-center justify-between border-b bg-white px-4 md:hidden">
+                <header className="flex h-16 items-center justify-between border-b bg-white px-4 md:hidden no-print">
                     <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
                             <AvatarFallback className="bg-black text-white text-xs">

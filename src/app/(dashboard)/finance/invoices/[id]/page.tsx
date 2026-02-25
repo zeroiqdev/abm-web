@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { Printer, CheckCircle, ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { cn, numberToWords } from "@/lib/utils";
 import { PageLoader } from "@/components/ui/page-loader";
 import { toast } from "sonner";
@@ -187,10 +188,13 @@ export default function InvoiceDetailsPage() {
                         <p className="text-sm text-gray-500 font-mono">#{invoice.id}</p>
                     </div>
                     <div className="text-right flex flex-col items-end">
-                        <img
+                        <Image
                             src="/media__1772030792170.png"
                             alt="ABM TEK Logo"
-                            className="h-16 w-auto mb-2 bg-white"
+                            width={200}
+                            height={64}
+                            className="h-16 w-auto mb-2"
+                            priority
                         />
                     </div>
                 </CardHeader>
@@ -393,19 +397,21 @@ export default function InvoiceDetailsPage() {
             <style jsx global>{`
                 @media print {
                     .no-print { display: none !important; }
-                    body { background: white !important; margin: 0; padding: 0; font-size: 11px; }
-                    .Card { border: none !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; }
-                    .CardHeader { padding-bottom: 0.5rem !important; }
-                    .CardContent { padding-top: 0.5rem !important; }
-                    .Separator { margin: 1rem 0 !important; }
+                    body { background: white !important; margin: 0 !important; padding: 0 !important; font-size: 11px !important; }
+                    nav, header, aside, footer { display: none !important; }
+                    main { padding: 0 !important; margin: 0 !important; }
+                    [class*="shadow"] { box-shadow: none !important; }
+                    [class*="Card"] { border: none !important; box-shadow: none !important; margin: 0 !important; }
                     table { font-size: 11px !important; }
-                    th, td { padding: 0.5rem !important; }
-                    main { padding: 0 !important; }
-                    .shadow-lg { box-shadow: none !important; }
-                    .border { border: 1px solid #eee !important; }
+                    th, td { padding: 0.35rem 0.5rem !important; }
+                    .space-y-10 > * + * { margin-top: 1.5rem !important; }
+                    .gap-12 { gap: 2rem !important; }
+                    .pt-8 { padding-top: 1rem !important; }
+                    .p-8 { padding: 0 !important; }
+                    img { max-height: 50px !important; }
                     @page {
                       margin: 0.5cm;
-                      size: auto;
+                      size: A4;
                     }
                     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                 }
