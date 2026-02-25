@@ -14,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { Printer, CheckCircle, ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { cn, numberToWords } from "@/lib/utils";
 import { PageLoader } from "@/components/ui/page-loader";
 import { toast } from "sonner";
@@ -188,13 +187,11 @@ export default function InvoiceDetailsPage() {
                         <p className="text-sm text-gray-500 font-mono">#{invoice.id}</p>
                     </div>
                     <div className="text-right flex flex-col items-end">
-                        <Image
-                            src="/media__1772030792170.png"
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src="https://res.cloudinary.com/dyg7neetr/image/upload/v1772036824/ABM_BLACK_g6i4dm.png"
                             alt="ABM TEK Logo"
-                            width={200}
-                            height={64}
                             className="h-16 w-auto mb-2"
-                            priority
                         />
                     </div>
                 </CardHeader>
