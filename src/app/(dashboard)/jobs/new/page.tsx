@@ -213,7 +213,7 @@ export default function CreateJobPage() {
             }));
 
             // 1. Create Job
-            const jobData: Omit<Job, 'id' | 'createdAt' | 'updatedAt'> = {
+            const jobData: any = {
                 userId: selectedCustomerId,
                 vehicleId: selectedVehicleId,
                 workshopId: user.workshopId,
@@ -222,13 +222,14 @@ export default function CreateJobPage() {
                 description,
                 serviceCharge: labourCost,
                 status: 'diagnosed',
-                partsUsed: partsUsed.length > 0 ? partsUsed : undefined,
-                ...(selectedTechnicianIds.length > 0 ? {
-                    assignedTechnicianId: selectedTechnicianIds[0],
-                    assignedTechnicianIds: selectedTechnicianIds,
-                    technicianNames: selectedTechnicianIds.map(id => technicians.find(t => t.id === id)?.name || ''),
-                } : {}),
+                partsUsed: partsUsed.length > 0 ? partsUsed : [],
             };
+
+            if (selectedTechnicianIds.length > 0) {
+                jobData.assignedTechnicianId = selectedTechnicianIds[0];
+                jobData.assignedTechnicianIds = selectedTechnicianIds;
+                jobData.technicianNames = selectedTechnicianIds.map(id => technicians.find(t => t.id === id)?.name || '');
+            }
 
             const jobId = await firebaseService.createJob(jobData);
 

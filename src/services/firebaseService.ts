@@ -75,7 +75,7 @@ const adjustStock = async (items: { partId?: string; inventoryItemId?: string; q
     });
 
     // Log transaction
-    const transRef = doc(collection(db, 'stock_transactions'));
+    const transRef = doc(collection(db, 'stockTransactions'));
     batch.set(transRef, {
       workshopId,
       itemId,
