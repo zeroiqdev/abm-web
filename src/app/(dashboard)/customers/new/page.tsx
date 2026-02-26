@@ -52,15 +52,18 @@ export default function NewCustomerPage() {
 
             // Add vehicle if make/model/plate provided
             if (vehicle.make && vehicle.model && vehicle.licensePlate) {
-                await firebaseService.addVehicle({
+                const vehicleData: any = {
                     userId: customerId,
                     make: vehicle.make,
                     model: vehicle.model,
                     year: parseInt(vehicle.year) || new Date().getFullYear(),
                     licensePlate: vehicle.licensePlate.toUpperCase(),
-                    vin: vehicle.vin || "N/A",
-                    color: vehicle.color || undefined,
-                });
+                    vin: vehicle.vin ? vehicle.vin.toUpperCase() : "N/A",
+                };
+                if (vehicle.color) {
+                    vehicleData.color = vehicle.color;
+                }
+                await firebaseService.addVehicle(vehicleData);
             }
 
             toast.success("Customer created successfully");

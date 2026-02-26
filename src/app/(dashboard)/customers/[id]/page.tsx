@@ -109,32 +109,33 @@ export default function CustomerDetailPage() {
 
     const handleAddVehicle = async () => {
         if (!id || typeof id !== "string" || !currentUser?.workshopId) return;
-        if (!newVehicle.make || !newVehicle.model || !newVehicle.licensePlate) {
-            toast.error("Please fill in required vehicle fields");
+        if (!newVehicle.make || !newVehicle.model || !newVehicle.licensePlate || !newVehicle.year) {
+            toast.error("Please fill in required vehicle fields (Make, Model, Year, License Plate)");
             return;
         }
 
         setIsSaving(true);
         try {
-            const vehicleId = await firebaseService.addVehicle({
+            // Build vehicle data matching mobile app pattern exactly
+            const vehicleData: any = {
                 userId: id,
                 make: newVehicle.make,
                 model: newVehicle.model,
                 year: parseInt(newVehicle.year) || new Date().getFullYear(),
                 licensePlate: newVehicle.licensePlate.toUpperCase(),
-                vin: newVehicle.vin || "N/A",
-                color: newVehicle.color || undefined,
-            });
+                vin: newVehicle.vin ? newVehicle.vin.toUpperCase() : "N/A",
+            };
+
+            // Conditionally include color only when provided (matches mobile app behavior)
+            if (newVehicle.color) {
+                vehicleData.color = newVehicle.color;
+            }
+
+            const vehicleId = await firebaseService.addVehicle(vehicleData);
 
             const newlyAddedVehicle: Vehicle = {
                 id: vehicleId,
-                userId: id,
-                make: newVehicle.make,
-                model: newVehicle.model,
-                year: parseInt(newVehicle.year) || new Date().getFullYear(),
-                licensePlate: newVehicle.licensePlate.toUpperCase(),
-                vin: newVehicle.vin || "N/A",
-                color: newVehicle.color || undefined,
+                ...vehicleData,
                 createdAt: new Date(),
                 updatedAt: new Date(),
             };
