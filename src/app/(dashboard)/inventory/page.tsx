@@ -105,20 +105,48 @@ export default function InventoryPage() {
         setIsDialogOpen(true);
     };
 
+    const generateUniqueId = (): string => {
+        const timestamp = Date.now().toString(36).toUpperCase();
+        const random = Math.random().toString(16).substring(2, 6).toUpperCase();
+        return `ITEM-${timestamp}${random}`;
+    };
+
     const handleNewQuantityChange = (delta: number) => {
-        if (delta > 0) {
-            setNewUnitIds(prev => [...prev, ...Array(delta).fill("")]);
-        } else {
-            const slotsToRemove = Math.abs(delta);
-            setNewUnitIds(prev => prev.slice(0, Math.max(0, prev.length - slotsToRemove)));
+        setNewUnitIds((prev) => {
+            if (delta > 0) {
+                // Auto-generate unique IDs for new slots
+                const newSlots = Array(delta).fill(null).map(() => generateUniqueId());
+                return [...prev, ...newSlots];
+            } else {
+                // Remove from end
+                const slotsToRemove = Math.abs(delta);
+                if (prev.length === 0) return prev;
+                return prev.slice(0, Math.max(0, prev.length - slotsToRemove));
+            }
+        });
+    };
+
+    const handleDirectQuantityInput = (value: string) => {
+        const parsed = parseInt(value, 10);
+        if (value === "" || value === "0") {
+            setNewUnitIds([]);
+            return;
+        }
+        if (isNaN(parsed) || parsed < 0) return;
+        const desired = parsed;
+        const current = newUnitIds.length;
+        if (desired > current) {
+            handleNewQuantityChange(desired - current);
+        } else if (desired < current) {
+            handleNewQuantityChange(desired - current);
         }
     };
 
     const updateNewUnitId = (index: number, value: string) => {
-        setNewUnitIds(prev => {
-            const updated = [...prev];
-            updated[index] = value;
-            return updated;
+        setNewUnitIds((prev) => {
+            const newIds = [...prev];
+            newIds[index] = value;
+            return newIds;
         });
     };
 
@@ -132,10 +160,10 @@ export default function InventoryPage() {
             return;
         }
 
-        // Validate new unit IDs — no empty slots
-        const emptyNewSlots = newUnitIds.some(id => id.trim() === "");
+        // Validate new unit IDs
+        const emptyNewSlots = newUnitIds.some(uid => uid.trim() === "");
         if (emptyNewSlots) {
-            toast.error("Please enter a Unique ID for all new units or remove empty slots using the - button.");
+            toast.error("All units must have a unique ID. Please fill in or remove empty entries.");
             return;
         }
 
@@ -196,7 +224,7 @@ export default function InventoryPage() {
                 return;
             }
 
-            // Prepare final data — matching mobile app exactly
+            // Prepare final data
             const finalUnitIds = [...existingUnitIds, ...newUnitIds.map(id => id.trim())];
             const finalQuantity = finalUnitIds.length;
 
@@ -367,10 +395,10 @@ export default function InventoryPage() {
                                 </div>
                             </div>
 
-                            {/* Add New Units Stepper */}
+                            {/* Add New Units Stepper & Input */}
                             <div className="flex items-center justify-between">
                                 <p className="text-sm font-medium text-gray-700">Add New Units</p>
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
                                     <button
                                         type="button"
                                         onClick={() => handleNewQuantityChange(-1)}
@@ -384,9 +412,14 @@ export default function InventoryPage() {
                                     >
                                         <Minus className="h-4 w-4" />
                                     </button>
-                                    <span className="text-2xl font-bold text-gray-900 min-w-[40px] text-center">
-                                        {newUnitIds.length}
-                                    </span>
+                                    <div className="relative">
+                                        <Input
+                                            type="number"
+                                            className="h-10 w-20 text-center font-bold text-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                            value={newUnitIds.length}
+                                            onChange={(e) => handleDirectQuantityInput(e.target.value)}
+                                        />
+                                    </div>
                                     <button
                                         type="button"
                                         onClick={() => handleNewQuantityChange(1)}
@@ -399,33 +432,35 @@ export default function InventoryPage() {
 
                             {/* New Unit ID Inputs */}
                             {newUnitIds.length > 0 && (
-                                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                                    <p className="text-xs text-gray-500">Enter Unique ID (Serial Number) for each new unit</p>
-                                    {newUnitIds.map((uid, index) => {
-                                        const isFilled = uid.trim() !== "";
-                                        return (
-                                            <Input
-                                                key={index}
-                                                placeholder={`New Unit ${index + 1} ID`}
-                                                value={uid}
-                                                onChange={(e) => updateNewUnitId(index, e.target.value)}
-                                                className={cn(
-                                                    "bg-white",
-                                                    isFilled && "border-green-400 bg-green-50/50"
-                                                )}
-                                            />
-                                        );
-                                    })}
+                                <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100">
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">New Unit IDs (Auto-generated)</p>
+                                    <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                                        {newUnitIds.map((uid, index) => (
+                                            <div key={index} className="flex items-center gap-2">
+                                                <span className="text-[10px] text-gray-400 font-mono w-4">{index + 1}.</span>
+                                                <Input
+                                                    placeholder={`Unit ID`}
+                                                    value={uid}
+                                                    onChange={(e) => updateNewUnitId(index, e.target.value)}
+                                                    className="bg-white h-9 text-xs font-mono"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
 
                             {/* Existing Unit IDs */}
                             {existingUnitIds.length > 0 && (
-                                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                                    <p className="text-xs font-semibold text-gray-500">Existing Units ({existingUnitIds.length})</p>
-                                    <p className="text-xs text-gray-400 leading-relaxed">
-                                        {existingUnitIds.join(", ")}
-                                    </p>
+                                <div className="bg-gray-50/50 rounded-xl p-4 border border-dashed border-gray-200">
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-2">Existing Units ({existingUnitIds.length})</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {existingUnitIds.map((uid, idx) => (
+                                            <span key={idx} className="px-2 py-0.5 bg-gray-200/50 text-gray-600 rounded text-[10px] font-mono">
+                                                {uid}
+                                            </span>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
