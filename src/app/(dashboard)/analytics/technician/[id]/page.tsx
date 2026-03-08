@@ -75,13 +75,10 @@ export default function TechnicianDetailsPage() {
             const createdAt = job.createdAt ? new Date(job.createdAt) : new Date();
             const completedAt = job.completedAt ? new Date(job.completedAt) : null;
 
-            // Match if created in range
             const createdMatch = isWithinInterval(createdAt, { start, end });
 
-            // Match if completed in range
             const completedMatch = completedAt && isWithinInterval(completedAt, { start, end });
 
-            // Match if any payment in range
             const jobInvoices = invoices.filter(inv => inv.jobId === job.id);
             const paymentMatch = jobInvoices.some(inv =>
                 inv.paymentHistory?.some((p: any) => {
@@ -105,7 +102,6 @@ export default function TechnicianDetailsPage() {
             return j.status === 'completed' && cDate && isWithinInterval(cDate, { start, end });
         });
 
-        // Final fallback for missing completedAt
         if (completedJobs.length === 0) {
             filteredJobs.forEach(j => {
                 if (j.status === 'completed' && j.createdAt && isWithinInterval(new Date(j.createdAt), { start, end })) {

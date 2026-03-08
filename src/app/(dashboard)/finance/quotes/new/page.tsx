@@ -41,7 +41,6 @@ export default function CreateQuotePage() {
     const [discount, setDiscount] = useState(0);
     const [loading, setLoading] = useState(false);
 
-    // Inventory
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const [inventorySearch, setInventorySearch] = useState("");
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);

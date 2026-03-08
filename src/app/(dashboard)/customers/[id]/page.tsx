@@ -42,7 +42,6 @@ export default function CustomerDetailPage() {
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
-    // Edit customer state
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editData, setEditData] = useState({
         name: "",
@@ -51,7 +50,6 @@ export default function CustomerDetailPage() {
         birthday: "",
     });
 
-    // Add vehicle state
     const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
     const [newVehicle, setNewVehicle] = useState({
         make: "",
@@ -116,7 +114,6 @@ export default function CustomerDetailPage() {
 
         setIsSaving(true);
         try {
-            // Build vehicle data matching mobile app pattern exactly
             const vehicleData: any = {
                 userId: id,
                 make: newVehicle.make,
@@ -126,7 +123,6 @@ export default function CustomerDetailPage() {
                 vin: newVehicle.vin ? newVehicle.vin.toUpperCase() : "N/A",
             };
 
-            // Conditionally include color only when provided (matches mobile app behavior)
             if (newVehicle.color) {
                 vehicleData.color = newVehicle.color;
             }

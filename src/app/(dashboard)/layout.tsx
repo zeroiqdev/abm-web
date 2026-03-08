@@ -66,7 +66,7 @@ export default function DashboardLayout({
         { href: "/analytics", label: "Analytics", icon: BarChart3 },
         { href: "/inventory", label: "Inventory", icon: Package },
         { href: "/marketplace/orders", label: "Marketplace Orders", icon: ShoppingBag },
-        { href: "/settings", label: "Settings", icon: Settings }, // Optional
+        { href: "/settings", label: "Settings", icon: Settings },
     ];
 
     return (

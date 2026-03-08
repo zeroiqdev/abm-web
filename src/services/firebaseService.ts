@@ -45,15 +45,12 @@ import {
   InvoiceStatus,
 } from '@/types';
 
-// Helper for file uploads (Web API)
 const uploadImageToMethods = async (file: File | Blob, path: string): Promise<string> => {
   const storageRef = ref(storage, path);
   await uploadBytes(storageRef, file);
   return await getDownloadURL(storageRef);
 };
 
-
-// Helper for inventory adjustment
 const adjustStock = async (items: { partId?: string; inventoryItemId?: string; quantity: number }[], workshopId: string, type: 'deduct' | 'restore') => {
   const batch = writeBatch(db);
   for (const item of items) {
@@ -74,7 +71,6 @@ const adjustStock = async (items: { partId?: string; inventoryItemId?: string; q
       updatedAt: Timestamp.now()
     });
 
-    // Log transaction
     const transRef = doc(collection(db, 'stockTransactions'));
     batch.set(transRef, {
       workshopId,
@@ -90,9 +86,6 @@ const adjustStock = async (items: { partId?: string; inventoryItemId?: string; q
 
 export const firebaseService = {
   async sendPasswordResetEmail(email: string): Promise<void> {
-    // Branded email via client is not possible because we can't generate
-    // the reset link without the Admin SDK.
-    // Falling back to standard Firebase Auth email.
     await firebaseSendPasswordResetEmail(auth, email);
   },
 
@@ -251,7 +244,6 @@ export const firebaseService = {
     const customerIdentifier = invoice.userId ? invoice.userId.slice(0, 8) : 'DIRECT';
     const invoiceId = `INV-${customerIdentifier}-${lastFour}`;
 
-    // Sanitize invoice object to remove undefined values which Firestore setDoc doesn't accept
     const cleanInvoice = Object.entries(invoice).reduce((acc, [key, value]) => {
       if (value !== undefined) {
         acc[key] = value;
@@ -266,7 +258,6 @@ export const firebaseService = {
       createdAt: Timestamp.now(),
     });
 
-    // Deduct stock for inventory items
     const inventoryItems = invoice.items.filter(item => item.inventoryItemId);
     if (inventoryItems.length > 0) {
       await adjustStock(inventoryItems, invoice.workshopId, 'deduct');
@@ -291,15 +282,12 @@ export const firebaseService = {
       }));
     }
 
-    // Handle items delta
     if (data.items && oldInvoice.items) {
       const oldInvItems = oldInvoice.items.filter(i => i.inventoryItemId);
       const newInvItems = data.items.filter(i => i.inventoryItemId);
       await adjustStock(oldInvItems, oldInvoice.workshopId, 'restore');
       await adjustStock(newInvItems, oldInvoice.workshopId, 'deduct');
 
-      // logic: if invoice edited after full amount has been paid with paid status 
-      // then if extra invoice items added it should change status to partially paid
       const newTotal = data.total ?? oldInvoice.total;
       const amountPaid = data.amountPaid ?? oldInvoice.amountPaid ?? 0;
       if (oldInvoice.paymentStatus === 'paid' && newTotal > amountPaid) {
@@ -322,11 +310,11 @@ export const firebaseService = {
     const docRef = doc(db, 'invoices', invoiceId);
     await updateDoc(docRef, {
       status: 'approved',
-      invoiceStatus: 'approved', // Sync both fields
+      invoiceStatus: 'approved',
       approvedBy,
       approvedAt: now,
       dueDate: dueDate,
-      wasUpdated: isOfflineOverride, // Mark as updated for tracking
+      wasUpdated: isOfflineOverride,
       updatedAt: Timestamp.now(),
     });
   },
@@ -456,7 +444,6 @@ export const firebaseService = {
     return null;
   },
 
-  // ============ QUOTE FUNCTIONS ============
   async createQuote(quote: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     const docRef = await addDoc(collection(db, 'quotes'), {
       ...quote,
@@ -465,14 +452,6 @@ export const firebaseService = {
       updatedAt: Timestamp.now(),
     });
 
-    // In quotes, we don't necessarily deduct stock until approved/converted, 
-    // BUT the user request says "synchronize", implying quotes should also track.
-    // However, common logic is to only deduct on invoice. 
-    // Let's stick to the user's specific complaint that they can add more than in stock.
-    // The UI handles the validation. We might not want to deduct from DB on draft quotes 
-    // to avoid locking stock that isn't paid for yet.
-    // User requested "In real time accurately update inventory stock values when items are added to a job/ quote/ invoice".
-    // So we will deduct on quote creation too.
     const invItems = (quote.items || []).filter(i => (i as any).inventoryItemId);
     if (invItems.length > 0) {
       await adjustStock(invItems as any, quote.workshopId, 'deduct');
@@ -590,7 +569,6 @@ export const firebaseService = {
 
     const invoiceId = await this.createInvoice(invoiceData);
 
-    // Update quote status
     await this.updateQuote(quoteId, {
       status: 'converted',
       convertedToInvoiceId: invoiceId,
@@ -609,7 +587,6 @@ export const firebaseService = {
     return invoiceId;
   },
 
-  // ============ JOB FUNCTIONS ============
   async getJobs(userId?: string, workshopId?: string, status?: string[]): Promise<Job[]> {
     const constraints: QueryConstraint[] = [];
     if (userId) {
@@ -663,7 +640,6 @@ export const firebaseService = {
       updatedAt: Timestamp.now(),
     });
 
-    // Deduct stock if parts are used
     if (job.partsUsed && job.partsUsed.length > 0) {
       await adjustStock(job.partsUsed, job.workshopId, 'deduct');
     }
@@ -676,10 +652,7 @@ export const firebaseService = {
     const oldJobSnap = await getDoc(docRef);
     const oldJob = oldJobSnap.data() as Job;
 
-    // Handle parts delta
     if (data.partsUsed && oldJob.partsUsed) {
-      // Simplest: restore all old, deduct all new
-      // More robust: calculate diff. Let's do restore all/deduct all for safety.
       await adjustStock(oldJob.partsUsed, oldJob.workshopId, 'restore');
       await adjustStock(data.partsUsed, oldJob.workshopId, 'deduct');
     } else if (data.partsUsed) {
@@ -713,7 +686,6 @@ export const firebaseService = {
     });
   },
 
-  // ============ VEHICLE FUNCTIONS ============
   async getVehicles(userId: string): Promise<Vehicle[]> {
     const q = query(
       collection(db, 'vehicles'),
@@ -765,7 +737,6 @@ export const firebaseService = {
     });
   },
 
-  // ============ STAFF INVITATION FUNCTIONS ============
   async getStaffInvitations(workshopId: string): Promise<StaffInvitation[]> {
     const q = query(
       collection(db, 'staffInvitations'),
@@ -809,7 +780,6 @@ export const firebaseService = {
       createdAt: Timestamp.now(),
     });
 
-    // Send invitation email in background
     (async () => {
       try {
         let workshopName = '';
@@ -831,7 +801,6 @@ export const firebaseService = {
     await deleteDoc(docRef);
   },
 
-  // ============ ACCESS CONTROL FUNCTIONS ============
   async getWorkshopPermissions(workshopId: string): Promise<Record<string, RolePermissions['permissions']>> {
     const docRef = doc(db, 'workshops', workshopId, 'settings', 'permissions');
     const docSnap = await getDoc(docRef);
@@ -879,7 +848,6 @@ export const firebaseService = {
     });
   },
 
-  // ============ USER BY ROLE ============
   async getUsersByRole(role: string, workshopId: string): Promise<User[]> {
     const directQuery = query(
       collection(db, 'users'),
@@ -914,7 +882,6 @@ export const firebaseService = {
     );
   },
 
-  // ============ WORKSHOP MANAGEMENT ============
   async getWorkshops(): Promise<any[]> {
     const q = query(collection(db, 'workshops'), orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
@@ -923,7 +890,6 @@ export const firebaseService = {
       ...docSnap.data(),
     }));
   },
-
 
   async createWorkshop(data: {
     name: string;

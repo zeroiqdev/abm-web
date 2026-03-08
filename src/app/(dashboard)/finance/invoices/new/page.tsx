@@ -27,18 +27,15 @@ export default function NewInvoicePage() {
     const { user } = useAuthStore();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Customer Details
     const [customerName, setCustomerName] = useState("");
     const [customerPhone, setCustomerPhone] = useState("");
     const [customerEmail, setCustomerEmail] = useState("");
     const [customerAddress, setCustomerAddress] = useState("");
 
-    // Customers
     const [workshopCustomers, setWorkshopCustomers] = useState<User[]>([]);
     const [customerSearch, setCustomerSearch] = useState("");
     const [isCustomerOpen, setIsCustomerOpen] = useState(false);
 
-    // Inventory
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const [inventorySearch, setInventorySearch] = useState("");
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);
@@ -70,20 +67,16 @@ export default function NewInvoicePage() {
         fetchCustomers();
     }, [user]);
 
-    // Invoice Items
     const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
 
-    // New Item Form
     const [newDescription, setNewDescription] = useState("");
     const [newQuantity, setNewQuantity] = useState("1");
     const [newPrice, setNewPrice] = useState("");
 
-    // Invoice Settings
     const [vatRate, setVatRate] = useState("0");
     const [discount, setDiscount] = useState("0");
     const [dueDate, setDueDate] = useState<string>("");
 
-    // Add item to list
     const handleAddItem = () => {
         if (!newDescription || !newPrice) {
             toast.error("Please enter description and price");
@@ -168,7 +161,6 @@ export default function NewInvoicePage() {
         setInvoiceItems(invoiceItems.filter((_, i) => i !== index));
     };
 
-    // Calculate totals
     const subtotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
     const vatAmount = subtotal * (parseFloat(vatRate) || 0) / 100;
     const discountAmount = parseFloat(discount) || 0;
@@ -471,7 +463,7 @@ export default function NewInvoicePage() {
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={selectedInventoryIds.has(item.id)}
-                                                                    onChange={() => { }} // Handled by tr onClick
+                                                                    onChange={() => { }}
                                                                     className="h-4 w-4 rounded border-gray-300 accent-slate-900"
                                                                 />
                                                             </td>

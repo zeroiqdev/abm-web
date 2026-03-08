@@ -48,7 +48,6 @@ export default function DashboardPage() {
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Filters for Analytics section
     const [dateRange, setDateRange] = useState({
         start: format(startOfMonth(new Date()), "yyyy-MM-dd"),
         end: format(new Date(), "yyyy-MM-dd"),
@@ -73,8 +72,6 @@ export default function DashboardPage() {
                     firebaseService.getUsersByWorkshop(workshopIdToFetch)
                 ]);
 
-                // Get all vehicles for accurate mapping
-                // Since vehicles don't have workshopId, we fetch for all users in workshop
                 const vehiclesPromises = usersData.map(u => firebaseService.getVehicles(u.id));
                 const vehiclesDataNested = await Promise.all(vehiclesPromises);
                 const flattenedVehicles = vehiclesDataNested.flat();
@@ -94,7 +91,6 @@ export default function DashboardPage() {
         fetchData();
     }, [user]);
 
-    // Unified Filter logic
     const filteredJobs = useMemo(() => {
         return jobs.filter(job => {
             const jobDate = job.createdAt || new Date();
@@ -115,18 +111,13 @@ export default function DashboardPage() {
             const invDate = inv.createdAt || new Date();
             const start = startOfDay(new Date(dateRange.start));
             const end = endOfDay(new Date(dateRange.end));
-            // Basic date filter for invoices
             const dateMatch = isWithinInterval(invDate, { start, end });
 
-            // Invoices are linked to jobs, so we could filter by tech/type if we had jobId
-            // For now, filtering by date is a good start for the summary.
             return dateMatch;
         });
     }, [invoices, dateRange]);
 
-    // Core Business Stats (Filtered)
     const filteredCoreStats = useMemo(() => {
-        // Calculate Total Paid based on Payment History (Sum all payments in period regardless of invoice date)
         const totalPaid = invoices.reduce((acc, inv) => {
             if (!inv.paymentHistory || !Array.isArray(inv.paymentHistory)) return acc;
 
@@ -154,14 +145,12 @@ export default function DashboardPage() {
         const pendingCount = filteredInvoices.filter(inv => inv.paymentStatus !== 'paid').length;
         const lowStockCount = inventory.filter(item => item.quantity <= item.minStockLevel).length;
 
-        // Job Stats (filtered by date range)
         const pendingJobs = filteredJobs.filter(j => j.status === 'received' || j.status === 'diagnosed').length;
         const activeJobs = filteredJobs.filter(j => j.status === 'repairing').length;
         const completedJobsCount = filteredJobs.filter(j => j.status === 'completed').length;
 
         return { totalPaid, outstanding, pendingCount, lowStockCount, pendingJobs, activeJobs, completedJobsCount };
     }, [filteredInvoices, invoices, inventory, filteredJobs, dateRange]);
-
 
     const getCustomerName = (userId: string) => {
         const u = allUsers.find(u => u.id === userId);
@@ -461,5 +450,4 @@ export default function DashboardPage() {
         </div>
     );
 }
-
 

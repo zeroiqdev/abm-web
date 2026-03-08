@@ -23,7 +23,6 @@ export default function NewCustomerPage() {
     const [email, setEmail] = useState("");
     const [birthday, setBirthday] = useState("");
 
-    // Vehicle state
     const [vehicle, setVehicle] = useState({
         make: "",
         model: "",
@@ -50,7 +49,6 @@ export default function NewCustomerPage() {
                 workshopId: user.workshopId,
             });
 
-            // Add vehicle if make/model/plate provided
             if (vehicle.make && vehicle.model && vehicle.licensePlate) {
                 const vehicleData: any = {
                     userId: customerId,

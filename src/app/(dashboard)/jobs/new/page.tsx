@@ -47,7 +47,6 @@ export default function CreateJobPage() {
     const [loading, setLoading] = useState(false);
     const [fetchingData, setFetchingData] = useState(true);
 
-    // Parts state
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const [selectedParts, setSelectedParts] = useState<(PartUsed & { maxQty: number })[]>([]);
     const [partSearch, setPartSearch] = useState("");
@@ -100,11 +99,10 @@ export default function CreateJobPage() {
         );
     };
 
-    // Parts helpers
     const filteredInventory = useMemo(() => {
         const alreadyAdded = new Set(selectedParts.map(p => p.partId));
         return inventoryItems
-            .filter(item => item.quantity > 0) // only in-stock items
+            .filter(item => item.quantity > 0)
             .filter(item => !alreadyAdded.has(item.id))
             .filter(item =>
                 item.name.toLowerCase().includes(partSearch.toLowerCase()) ||
@@ -113,7 +111,6 @@ export default function CreateJobPage() {
     }, [inventoryItems, partSearch, selectedParts]);
 
     const addPart = (item: InventoryItem) => {
-        // Enforce stock limit
         if (item.quantity <= 0) {
             toast.error(`"${item.name}" is out of stock.`);
             return;
@@ -160,7 +157,6 @@ export default function CreateJobPage() {
         setSelectedParts(prev => prev.filter(p => p.partId !== partId));
     };
 
-    // Totals
     const labourCost = parseFloat(serviceCharge || "0");
     const partsCost = selectedParts.reduce((sum, p) => sum + p.unitPrice * (p.quantity || 1), 0);
     const estimatedTotal = labourCost + partsCost;
@@ -186,13 +182,12 @@ export default function CreateJobPage() {
                 partName: externalPart.name,
                 quantity,
                 unitPrice,
-                maxQty: 999999, // Practically unlimited
+                maxQty: 999999,
             },
         ]);
 
         setExternalPart({ name: "", quantity: "1", unitPrice: "" });
-        setPartMode("inventory"); // Reset to inventory or stay? stay for now maybe? user said mobile app experience.
-        // In mobile app it switches mode.
+        setPartMode("inventory");
     };
 
     const handleCreateJob = async () => {
@@ -212,7 +207,6 @@ export default function CreateJobPage() {
                 unitPrice: p.unitPrice,
             }));
 
-            // 1. Create Job
             const jobData: any = {
                 userId: selectedCustomerId,
                 vehicleId: selectedVehicleId,
@@ -233,7 +227,6 @@ export default function CreateJobPage() {
 
             const jobId = await firebaseService.createJob(jobData);
 
-            // 2. Automatically Create Quote
             const quoteItems = [
                 {
                     id: 'labour-001',

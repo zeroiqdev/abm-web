@@ -31,7 +31,6 @@ import {
     Package
 } from "lucide-react";
 
-
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -49,8 +48,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PartUsed, InventoryItem } from "@/types";
 
-
-
 export default function JobDetailsPage() {
     const { id } = useParams();
     const router = useRouter();
@@ -59,7 +56,7 @@ export default function JobDetailsPage() {
     const [job, setJob] = useState<Job | null>(null);
     const [customer, setCustomer] = useState<User | null>(null);
     const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-    const [technician, setTechnician] = useState<User | null>(null); // Primary for legacy/display
+    const [technician, setTechnician] = useState<User | null>(null);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [quotes, setQuotes] = useState<Quote[]>([]);
     const [loading, setLoading] = useState(true);
@@ -86,8 +83,6 @@ export default function JobDetailsPage() {
         assignedTechnicianIds: [] as string[]
     });
 
-
-
     const ISSUE_OPTIONS = [
         'Servicing',
         'Mechanical',
@@ -102,7 +97,6 @@ export default function JobDetailsPage() {
         'Performance Loss',
         'Others',
     ];
-
 
     useEffect(() => {
         const fetchJobData = async () => {
@@ -121,10 +115,6 @@ export default function JobDetailsPage() {
                         assignedTechnicianIds: jobData.assignedTechnicianIds || (jobData.assignedTechnicianId ? [jobData.assignedTechnicianId] : [])
                     });
 
-
-
-
-                    // Parallel fetch related info
                     const [custData, vehData, invData, quoteData, techsData, custVehs, inventory] = await Promise.all([
                         firebaseService.getUser(jobData.userId),
                         firebaseService.getVehicle(jobData.vehicleId),
@@ -203,7 +193,6 @@ export default function JobDetailsPage() {
 
             await firebaseService.updateJobStatus(job.id, newStatus, currentUser.name || 'System');
 
-            // Update local state
             setJob({
                 ...job,
                 status: newStatus,
@@ -231,7 +220,6 @@ export default function JobDetailsPage() {
             const updateData: Partial<Job> = {
                 assignedTechnicianIds: selectedTechIds,
                 technicianNames: techNames,
-                // Backward compatibility
                 assignedTechnicianId: selectedTechIds[0] || undefined,
                 technicianName: techNames[0] || undefined,
             };
@@ -273,7 +261,7 @@ export default function JobDetailsPage() {
                 serviceCharge: editForm.serviceCharge,
                 issues: editForm.issues,
                 vehicleId: editForm.vehicleId,
-                partsUsed: editForm.partsUsed.map(({ maxQty, ...rest }) => rest), // Remove maxQty helper
+                partsUsed: editForm.partsUsed.map(({ maxQty, ...rest }) => rest),
                 assignedTechnicianIds: editForm.assignedTechnicianIds,
                 technicianNames,
                 assignedTechnicianId: editForm.assignedTechnicianIds[0] || undefined,
@@ -285,7 +273,6 @@ export default function JobDetailsPage() {
 
             await firebaseService.updateJob(job.id, updateData);
 
-            // Update local state and fetch new vehicle details if changed
             if (updateData.vehicleId !== job.vehicleId) {
                 const newVeh = await firebaseService.getVehicle(updateData.vehicleId!);
                 setVehicle(newVeh);
@@ -363,7 +350,6 @@ export default function JobDetailsPage() {
 
             const quoteId = await firebaseService.createQuote(quoteData);
 
-            // If job is in 'received' status, move it to 'diagnosed'
             const currentStatus = (job.status || '').toLowerCase().trim();
             if (currentStatus === 'received') {
                 try {
@@ -385,7 +371,6 @@ export default function JobDetailsPage() {
                 }
             }
 
-            // Re-fetch quotes to update UI
             const newQuotes = await firebaseService.getQuotes(currentUser.workshopId);
             setQuotes(newQuotes.filter(q => q.jobId === job.id));
 
@@ -397,8 +382,6 @@ export default function JobDetailsPage() {
             setGeneratingQuote(false);
         }
     };
-
-
 
     const toggleIssue = (issue: string) => {
         setEditForm(prev => ({
@@ -418,7 +401,6 @@ export default function JobDetailsPage() {
         }));
     };
 
-
     const filteredInventory = useMemo(() => {
         const alreadyAdded = new Set(editForm.partsUsed.map(p => p.partId));
         return inventoryItems
@@ -431,7 +413,6 @@ export default function JobDetailsPage() {
     }, [inventoryItems, partSearch, editForm.partsUsed]);
 
     const addPart = (item: InventoryItem) => {
-        // Enforce stock limit
         if (item.quantity <= 0) {
             toast.error(`"${item.name}" is out of stock.`);
             return;
@@ -485,8 +466,6 @@ export default function JobDetailsPage() {
             partsUsed: prev.partsUsed.filter(p => p.partId !== partId)
         }));
     };
-
-
 
     if (loading) {
         return (
@@ -773,7 +752,6 @@ export default function JobDetailsPage() {
                                 </div>
                             </div>
 
-
                             <Separator className="bg-white/10" />
 
                             <div className="space-y-4">
@@ -1007,7 +985,6 @@ export default function JobDetailsPage() {
                                 ))}
                             </div>
                         </div>
-
 
                         <div className="space-y-4">
                             <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Issue Categories</Label>

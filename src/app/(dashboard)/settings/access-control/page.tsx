@@ -69,12 +69,10 @@ export default function AccessControlPage() {
     const [saving, setSaving] = useState(false);
     const [availableRoles, setAvailableRoles] = useState<string[]>(SYSTEM_ROLES);
 
-    // Create Role Modal
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newRoleName, setNewRoleName] = useState("");
     const [newRolePermissions, setNewRolePermissions] = useState<Record<string, boolean>>(DEFAULT_PERMISSIONS);
 
-    // Delete Role
     const [deleteRole, setDeleteRole] = useState<string | null>(null);
 
     useEffect(() => {

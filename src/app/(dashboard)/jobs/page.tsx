@@ -48,12 +48,10 @@ export default function JobsPage() {
 
                 setJobs(jobsData);
 
-                // Map customers
                 const customerMap: Record<string, any> = {};
                 usersData.forEach(u => { customerMap[u.id] = u; });
                 setCustomers(customerMap);
 
-                // Fetch vehicles for all unique user IDs
                 const uniqueUserIds = Array.from(new Set(jobsData.map(j => j.userId).filter(Boolean)));
                 const vehicleRecords: Record<string, any> = {};
 
@@ -89,7 +87,6 @@ export default function JobsPage() {
     const displayedJobs = (() => {
         let result = jobs;
 
-        // Apply date range filter if passed from dashboard
         if (fromDate && toDate) {
             const start = startOfDay(new Date(fromDate));
             const end = endOfDay(new Date(toDate));
@@ -99,7 +96,6 @@ export default function JobsPage() {
             });
         }
 
-        // Apply status filter
         if (statusFilter === "pending") return result.filter(j => j.status === "received" || j.status === "diagnosed");
         if (statusFilter === "active") return result.filter(j => j.status === "repairing");
         if (statusFilter === "completed") return result.filter(j => j.status === "completed");

@@ -29,7 +29,6 @@ export default function WorkshopManagementPage() {
     const [adminEmails, setAdminEmails] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
 
-    // Create Workshop
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newName, setNewName] = useState("");
     const [newPlan, setNewPlan] = useState("basic");
@@ -37,14 +36,12 @@ export default function WorkshopManagementPage() {
     const [adminEmail, setAdminEmail] = useState("");
     const [creating, setCreating] = useState(false);
 
-    // Workshop Details
     const [selectedWorkshop, setSelectedWorkshop] = useState<any>(null);
     const [editStatus, setEditStatus] = useState("");
     const [editExpiry, setEditExpiry] = useState("");
     const [detailAdminEmail, setDetailAdminEmail] = useState("");
     const [saving, setSaving] = useState(false);
 
-    // Delete
     const [deleteWorkshop, setDeleteWorkshop] = useState<any>(null);
     const [deleting, setDeleting] = useState(false);
 
@@ -58,7 +55,6 @@ export default function WorkshopManagementPage() {
             const data = await firebaseService.getWorkshops();
             setWorkshops(data);
 
-            // Fetch admin emails
             const emailsMap: Record<string, string> = {};
             for (const workshop of data) {
                 try {
@@ -67,7 +63,6 @@ export default function WorkshopManagementPage() {
                         emailsMap[workshop.id] = admins[0].email;
                     }
                 } catch (error) {
-                    // Silently skip
                 }
             }
             setAdminEmails(emailsMap);
@@ -126,7 +121,6 @@ export default function WorkshopManagementPage() {
         setSelectedWorkshop(workshop);
         setEditStatus(workshop.subscriptionStatus || "active");
 
-        // Handle Firestore Timestamp
         const expiryDate = workshop.subscriptionExpiry?.toDate
             ? workshop.subscriptionExpiry.toDate()
             : workshop.subscriptionExpiry
@@ -134,7 +128,6 @@ export default function WorkshopManagementPage() {
                 : new Date();
         setEditExpiry(expiryDate.toISOString().split("T")[0]);
 
-        // Fetch admin
         try {
             const admins = await firebaseService.getUsersByRole("admin", workshop.id);
             setDetailAdminEmail(admins?.[0]?.email || "");

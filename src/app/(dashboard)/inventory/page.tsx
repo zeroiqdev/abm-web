@@ -34,19 +34,16 @@ export default function InventoryPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(true);
 
-    // Dialog state
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
     const [saving, setSaving] = useState(false);
 
-    // Form state — matching mobile app
     const [formVendor, setFormVendor] = useState("");
     const [formName, setFormName] = useState("");
     const [formSku, setFormSku] = useState("");
     const [formCostPrice, setFormCostPrice] = useState("");
     const [formSellingPrice, setFormSellingPrice] = useState("");
 
-    // Unit IDs (serial numbers) - matching mobile app
     const [existingUnitIds, setExistingUnitIds] = useState<string[]>([]);
     const [newUnitIds, setNewUnitIds] = useState<string[]>([]);
 
@@ -114,11 +111,9 @@ export default function InventoryPage() {
     const handleNewQuantityChange = (delta: number) => {
         setNewUnitIds((prev) => {
             if (delta > 0) {
-                // Auto-generate unique IDs for new slots
                 const newSlots = Array(delta).fill(null).map(() => generateUniqueId());
                 return [...prev, ...newSlots];
             } else {
-                // Remove from end
                 const slotsToRemove = Math.abs(delta);
                 if (prev.length === 0) return prev;
                 return prev.slice(0, Math.max(0, prev.length - slotsToRemove));
@@ -160,21 +155,18 @@ export default function InventoryPage() {
             return;
         }
 
-        // Validate new unit IDs
         const emptyNewSlots = newUnitIds.some(uid => uid.trim() === "");
         if (emptyNewSlots) {
             toast.error("All units must have a unique ID. Please fill in or remove empty entries.");
             return;
         }
 
-        // Check for duplicates within new batch
         const newIdsSet = new Set(newUnitIds.map(id => id.trim().toLowerCase()));
         if (newIdsSet.size !== newUnitIds.length) {
             toast.error("You have entered duplicate IDs in the new units list.");
             return;
         }
 
-        // Check for duplicates against existing IDs of this item
         const existingIdsSet = new Set(existingUnitIds.map(id => id.trim().toLowerCase()));
         const duplicatesInExisting = newUnitIds.filter(id => existingIdsSet.has(id.trim().toLowerCase()));
         if (duplicatesInExisting.length > 0) {
@@ -185,7 +177,6 @@ export default function InventoryPage() {
         setSaving(true);
 
         try {
-            // Global uniqueness check
             const allItems = await firebaseService.getInventoryItems(user.workshopId);
             const allOtherUniqueIds = new Set<string>();
 
@@ -213,7 +204,6 @@ export default function InventoryPage() {
                 return;
             }
 
-            // Check for duplicate item names
             const isNameDuplicate = allItems.some(
                 (item) => item.name.toLowerCase() === formName.trim().toLowerCase() && item.id !== editingItem?.id
             );
@@ -224,7 +214,6 @@ export default function InventoryPage() {
                 return;
             }
 
-            // Prepare final data
             const finalUnitIds = [...existingUnitIds, ...newUnitIds.map(id => id.trim())];
             const finalQuantity = finalUnitIds.length;
 

@@ -1,4 +1,3 @@
-// Car brands with their domains for Brandfetch API
 export const CAR_BRANDS = [
     { name: 'Toyota', domain: 'toyota.com' },
     { name: 'Honda', domain: 'honda.com' },

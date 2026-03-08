@@ -63,7 +63,6 @@ export default function AnalyticsPage() {
                     firebaseService.getInventoryItems(user.workshopId)
                 ]);
 
-                // Fetch vehicles for all workshop users (customers) to map brands
                 const vehiclesPromises = usersData.map(u => firebaseService.getVehicles(u.id));
                 const vehiclesDataNested = await Promise.all(vehiclesPromises);
                 const flattenedVehicles = vehiclesDataNested.flat();
@@ -102,7 +101,6 @@ export default function AnalyticsPage() {
         const start = startOfDay(new Date(dateRange.start));
         const end = endOfDay(new Date(dateRange.end));
 
-        // Aligned Revenue Calculation (Mobile logic)
         const totalRevenue = invoices.reduce((acc: number, inv: any) => {
             if (!inv.paymentHistory || !Array.isArray(inv.paymentHistory)) return acc;
 
@@ -132,17 +130,14 @@ export default function AnalyticsPage() {
 
         const techMetrics: Record<string, { name: string, jobs: number, revenue: number, totalAssigned: number }> = {};
 
-        // Initialize all technicians
         technicians.forEach(t => {
             techMetrics[t.id] = { name: t.name, jobs: 0, revenue: 0, totalAssigned: 0 };
         });
 
-        // Use all jobs for tech metrics to capture payments/completions in period
         jobs.forEach(job => {
             const techIds = job.assignedTechnicianIds || (job.assignedTechnicianId ? [job.assignedTechnicianId] : []);
             const jobInvoices = invoices.filter(inv => inv.jobId === job.id);
 
-            // 1. Calculate Revenue for this job in the period
             const jobRevenueInPeriod = jobInvoices.reduce((sum: number, inv: any) => {
                 if (!inv.paymentHistory) return sum;
                 return sum + inv.paymentHistory.reduce((pSum: number, p: any) => {
@@ -154,11 +149,9 @@ export default function AnalyticsPage() {
                 }, 0);
             }, 0);
 
-            // 2. Check if job was completed in the period
             const completedAt = job.completedAt ? (job.completedAt instanceof Date ? job.completedAt : new Date(job.completedAt)) : null;
             const completedInPeriod = job.status === 'completed' && completedAt && isWithinInterval(completedAt, { start, end });
 
-            // Fallback for older data: count if completed and createdAt is in period
             const fallbackCompleted = job.status === 'completed' && !completedAt && job.createdAt && isWithinInterval(new Date(job.createdAt), { start, end });
 
             techIds.forEach((id) => {
@@ -179,10 +172,8 @@ export default function AnalyticsPage() {
             });
         });
 
-        // Issue-based Performance - Top Revenue Jobs should also be period-revenue based
         const issueUsage: Record<string, { issue: string, count: number, revenue: number }> = {};
 
-        // Count jobs created in period for "Most Requested" (volume)
         filteredJobs.forEach(job => {
             const issues = job.issues && job.issues.length > 0 ? job.issues : ['General / Other'];
             issues.forEach(issue => {
@@ -193,7 +184,6 @@ export default function AnalyticsPage() {
             });
         });
 
-        // Add revenue from ALL jobs that got paid in this period for "Top Revenue Jobs"
         jobs.forEach(job => {
             const jobInvoices = invoices.filter(inv => inv.jobId === job.id);
             const jobRevenueInPeriod = jobInvoices.reduce((sum: number, inv: any) => {
@@ -218,7 +208,6 @@ export default function AnalyticsPage() {
             }
         });
 
-        // Brand Performance
         const brandUsage: Record<string, { brand: string, count: number }> = {};
         filteredJobs.forEach(job => {
             if (!job.vehicleId) return;

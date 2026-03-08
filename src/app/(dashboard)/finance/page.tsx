@@ -75,7 +75,6 @@ export default function FinanceDashboard() {
         const start = startOfDay(new Date(dateRange.start));
         const end = endOfDay(new Date(dateRange.end));
 
-        // Helper for robust date interval check
         const isInRange = (date: Date | any) => {
             if (!date) return false;
             const d = date instanceof Date ? date : new Date(date);
@@ -83,7 +82,6 @@ export default function FinanceDashboard() {
             return isWithinInterval(d, { start, end });
         };
 
-        // Filtered Invoices for Period stats (Total Invoiced/Outstanding)
         const periodInvoices = invoices.filter(inv => isInRange(inv.createdAt));
 
         const approvedInvoices = periodInvoices.filter(inv =>
@@ -93,7 +91,6 @@ export default function FinanceDashboard() {
         );
         const invoiced = approvedInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
 
-        // Sum all payments in period regardless of invoice date (Synchronized with Dashboard)
         const paid = invoices.reduce((acc, inv) => {
             if (!inv.paymentHistory || !Array.isArray(inv.paymentHistory)) return acc;
 
@@ -108,12 +105,9 @@ export default function FinanceDashboard() {
 
         const outstanding = invoiced - paid;
 
-        // General counts
-
         const pendingQuotes = quotes.filter(q => q.status === 'pending_approval').length;
         const draftInvoices = invoices.filter(inv => inv.status === 'draft').length;
 
-        // Filtered lists for the table
         const filteredInvoices = periodInvoices.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
 
         const filteredQuotes = quotes.filter(q => isInRange(q.createdAt))
@@ -122,13 +116,10 @@ export default function FinanceDashboard() {
         return { invoiced, paid, outstanding, pendingQuotes, draftInvoices, filteredInvoices, filteredQuotes };
     }, [invoices, quotes, jobs, dateRange]);
 
-
-
     const getStatusStyles = (status: string, invoiceStatus?: string) => {
         const s = status?.toLowerCase();
         const is = invoiceStatus?.toLowerCase();
 
-        // Payment Status Mapping
         if (s === 'paid' || s === 'settled')
             return "bg-[#34C759]/20 text-[#34C759] border-[#34C759]/40";
         if (s === 'pending' || s === 'partially_paid')
@@ -138,7 +129,6 @@ export default function FinanceDashboard() {
         if (s === 'draft')
             return "bg-[#999999]/20 text-[#999999] border-[#999999]/40";
 
-        // Fallback for general status
         if (s === 'approved' || is === 'settled')
             return "bg-[#34C759]/20 text-[#34C759] border-[#34C759]/40";
 
@@ -235,8 +225,6 @@ export default function FinanceDashboard() {
                     </CardContent>
                 </Card>
             </div>
-
-
 
             {/* Tabs & Table */}
             <div className="space-y-4">

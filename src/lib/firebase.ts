@@ -13,12 +13,10 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Debug: Check for missing keys
 Object.entries(firebaseConfig).forEach(([key, value]) => {
     if (!value) console.error(`Missing Firebase Config: ${key}`);
 });
 
-// Singleton pattern to prevent multiple initializations in Next.js dev mode
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);

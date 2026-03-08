@@ -28,10 +28,9 @@ export interface User {
   name: string;
   phone: string;
   role: UserRole;
-  workshopId?: string; // Current/Active Workshop ID
-  connectedWorkshopIds?: string[]; // List of all workshops this user belongs to
+  workshopId?: string;
+  connectedWorkshopIds?: string[];
 
-  // Vendor specific fields
   vendorStatus?: 'active' | 'pending_details' | 'pending_approval' | 'rejected';
   rejectionReason?: string;
   businessDetails?: {
@@ -54,16 +53,14 @@ export interface User {
     certificateOfIncorporation?: string;
   };
 
-  // Notification preferences
   pushNotificationsEnabled?: boolean;
   emailNotificationsEnabled?: boolean;
   pushToken?: string;
 
-  // Customer workshop selection (for customers only)
-  selectedWorkshopIds?: string[];    // Workshops customer selected at signup
-  addedByWorkshopIds?: string[];     // Workshops that added this customer
+  selectedWorkshopIds?: string[];
+  addedByWorkshopIds?: string[];
 
-  birthday?: string; // Format: YYYY-MM-DD
+  birthday?: string;
 
   createdAt: Date;
   updatedAt: Date;
@@ -85,8 +82,8 @@ export interface Vehicle {
 export interface StatusHistoryEntry {
   fromStatus: JobStatus;
   toStatus: JobStatus;
-  changedBy: string;      // User ID
-  changedByName: string;  // User name for display
+  changedBy: string;
+  changedByName: string;
   changedAt: Date;
 }
 
@@ -96,13 +93,13 @@ export interface Job {
   vehicleId: string;
   workshopId: string;
   type: 'service' | 'complaint' | 'repair' | 'service_and_repair' | 'tow';
-  issues?: string[]; // Selected issue categories
+  issues?: string[];
   description: string;
   status: JobStatus;
-  assignedTechnicianId?: string; // Legacy: single technician
-  technicianName?: string; // Legacy: single technician name
-  assignedTechnicianIds?: string[]; // New: multiple technicians
-  technicianNames?: string[]; // New: multiple technician names
+  assignedTechnicianId?: string;
+  technicianName?: string;
+  assignedTechnicianIds?: string[];
+  technicianNames?: string[];
   images?: string[];
   videos?: string[];
   scheduledDate?: Date;
@@ -175,15 +172,13 @@ export interface Quote {
   workshopId: string;
   jobId?: string;
 
-  // Customer
   userId?: string;
   customerName: string;
   customerPhone?: string;
   customerEmail?: string;
   customerAddress?: string;
-  customerId?: string; // Sometimes used instead of userId
+  customerId?: string;
 
-  // Items & Pricing
   items: QuoteItem[];
   subtotal: number;
   vatRate: number;
@@ -191,11 +186,10 @@ export interface Quote {
   discount: number;
   total: number;
 
-  // Workflow
   status: QuoteStatus;
   convertedToInvoiceId?: string;
   rejectionReason?: string;
-  history?: QuoteLogEntry[]; // Audit trail
+  history?: QuoteLogEntry[];
 
   createdAt: Date;
   updatedAt: Date;
@@ -212,7 +206,7 @@ export interface Invoice {
   customerAddress?: string;
   workshopId: string;
   items: InvoiceItem[];
-  pendingItems?: InvoiceItem[];      // Unapproved additions
+  pendingItems?: InvoiceItem[];
   subtotal: number;
   vat: number;
   vatRate?: number;
@@ -225,14 +219,14 @@ export interface Invoice {
   amountPaid?: number;
   paymentHistory?: PaymentRecord[];
   pendingPayments?: PendingPayment[];
-  status: 'draft' | 'approved' | 'void';  // Backwards compat
-  invoiceStatus?: InvoiceStatus;          // New workflow status
+  status: 'draft' | 'approved' | 'void';
+  invoiceStatus?: InvoiceStatus;
   approvedAt?: Date;
   approvedBy?: string;
-  approvalHistory?: ApprovalEntry[];      // All approvals
-  sourceQuoteId?: string;                 // Original quote
-  lastUpdatedAt?: Date;                   // Last staff edit time
-  wasUpdated?: boolean;                   // Flag for customer notification
+  approvalHistory?: ApprovalEntry[];
+  sourceQuoteId?: string;
+  lastUpdatedAt?: Date;
+  wasUpdated?: boolean;
   createdAt: Date;
 }
 
@@ -255,11 +249,11 @@ export interface InventoryItem {
   minStockLevel: number;
   unitPrice: number;
   supplier?: string;
-  vendor?: string; // Vendor/supplier name
-  sku?: string; // Stock Keeping Unit
-  costPrice?: number; // Cost price per unit
-  sellingPrice?: number; // Selling price per unit
-  unitIds?: string[]; // Unique IDs/Serial numbers for each unit
+  vendor?: string;
+  sku?: string;
+  costPrice?: number;
+  sellingPrice?: number;
+  unitIds?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -278,13 +272,13 @@ export interface StockTransaction {
 export interface MarketplaceProduct {
   id: string;
   vendorId: string;
-  userId?: string; // Author of the post
+  userId?: string;
   name: string;
   description: string;
   category: string;
   price: number;
   images: string[];
-  compatibility: string[]; // Vehicle makes/models
+  compatibility: string[];
   stock: number;
   brand?: string;
   rating?: number;
@@ -323,7 +317,7 @@ export interface OrderItem {
   productName: string;
   quantity: number;
   price: number;
-  vendorId?: string; // Add vendorId to item for easier extraction
+  vendorId?: string;
   image?: string;
 }
 
@@ -344,8 +338,8 @@ export interface Notification {
   id: string;
   userId: string;
   title: string;
-  message?: string; // specific to old usages
-  body?: string; // explicit body content
+  message?: string;
+  body?: string;
   type: 'job_update' | 'payment' | 'inventory' | 'general' | 'order';
   read: boolean;
   metadata?: Record<string, any>;

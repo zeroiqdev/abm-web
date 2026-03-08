@@ -67,7 +67,6 @@ export default function QuoteDetailsPage() {
                 status: 'pending_approval',
                 sentAt: new Date()
             });
-            // Refresh quote
             const updated = await firebaseService.getQuote(quote.id);
             setQuote(updated);
             toast.success("Quote sent for approval");

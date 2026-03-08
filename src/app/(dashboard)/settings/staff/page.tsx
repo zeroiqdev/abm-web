@@ -35,7 +35,6 @@ export default function StaffManagementPage() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<"active" | "vendors" | "pending">("active");
 
-    // Form State
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -43,12 +42,10 @@ export default function StaffManagementPage() {
     const [role, setRole] = useState("technician");
     const [submitting, setSubmitting] = useState(false);
 
-    // Delete Confirmation
     const [deleteTarget, setDeleteTarget] = useState<User | StaffInvitation | null>(null);
     const [deleteType, setDeleteType] = useState<"user" | "invite">("user");
     const [deleting, setDeleting] = useState(false);
 
-    // Vendor Details
     const [selectedVendor, setSelectedVendor] = useState<User | null>(null);
     const [vendorProcessing, setVendorProcessing] = useState(false);
 
