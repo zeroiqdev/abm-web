@@ -137,10 +137,10 @@ export default function TechnicianDetailsPage() {
         }, 0);
 
         return {
-            completedJobsCount: completedJobs.length,
+            totalJobs: completedJobs.length,
             totalRevenue,
             averageJobValue: completedJobs.length > 0 ? totalRevenue / completedJobs.length : 0,
-            onTimeRate: completedJobs.length > 0 ? 100 : 0
+            activeJobs: filteredJobs.filter(j => j.status !== 'completed').length
         };
     }, [filteredJobs, invoices, id, dateRange, jobs]);
 
