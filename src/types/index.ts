@@ -129,6 +129,7 @@ export interface PaymentRecord {
   note?: string;
   entityType?: 'quote' | 'invoice';
   entityId?: string;
+  receiptUrl?: string;
 }
 
 export interface PendingPayment {
@@ -139,6 +140,7 @@ export interface PendingPayment {
   recordedByName: string;
   date: Date;
   status: 'pending' | 'confirmed' | 'rejected';
+  proofUrl?: string;
 }
 
 export interface ApprovalEntry {
@@ -194,6 +196,7 @@ export interface Quote {
   createdAt: Date;
   updatedAt: Date;
   sentAt?: Date;
+  quoteNumber?: string;
 }
 
 export interface Invoice {
@@ -228,6 +231,7 @@ export interface Invoice {
   lastUpdatedAt?: Date;
   wasUpdated?: boolean;
   createdAt: Date;
+  invoiceNumber?: string;
 }
 
 export interface InvoiceItem {
@@ -238,6 +242,7 @@ export interface InvoiceItem {
   total: number;
   inventoryItemId?: string;
   maxQty?: number;
+  isNewAddition?: boolean;
 }
 
 export interface InventoryItem {
@@ -254,6 +259,8 @@ export interface InventoryItem {
   costPrice?: number;
   sellingPrice?: number;
   unitIds?: string[];
+  damagedQuantity?: number;
+  addedBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }

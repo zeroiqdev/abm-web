@@ -91,7 +91,7 @@ export default function QuotesPage() {
                             quotes.map((quote) => (
                                 <TableRow key={quote.id} className="hover:bg-gray-50/50 transition-colors">
                                     <TableCell className="font-medium text-gray-900 pl-8">
-                                        <Link href={`/finance/quotes/${quote.id}`}>{quote.id.slice(0, 12)}...</Link>
+                                        <Link href={`/finance/quotes/${quote.id}`}>{quote.quoteNumber || quote.id}</Link>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex flex-col">

@@ -109,7 +109,7 @@ export default function InvoicesPage() {
                             displayedInvoices.map((invoice) => (
                                 <TableRow key={invoice.id} className="hover:bg-gray-50/50 transition-colors">
                                     <TableCell className="font-medium text-gray-900 pl-8">
-                                        <Link href={`/finance/invoices/${invoice.id}`}>{invoice.id}</Link>
+                                        <Link href={`/finance/invoices/${invoice.id}`}>{invoice.invoiceNumber || invoice.id}</Link>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex flex-col">

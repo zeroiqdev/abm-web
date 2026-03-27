@@ -18,6 +18,7 @@ import {
   writeBatch,
   arrayUnion,
   deleteField,
+  runTransaction,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject, uploadString } from 'firebase/storage';
 import { sendPasswordResetEmail as firebaseSendPasswordResetEmail } from 'firebase/auth';
@@ -215,30 +216,70 @@ export const firebaseService = {
     const docRef = doc(db, 'invoices', invoiceId);
     const docSnap = await getDoc(docRef);
 
+    let data: any;
+    let id: string;
+
     if (docSnap.exists()) {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        ...data,
-        createdAt: data.createdAt?.toDate(),
-        paymentDate: data.paymentDate?.toDate(),
-        dueDate: data.dueDate?.toDate(),
-        approvedAt: data.approvedAt?.toDate(),
-        status: data.status || 'draft',
-        approvedBy: data.approvedBy,
-        amountPaid: data.amountPaid || 0,
-        paymentHistory: Array.isArray(data.paymentHistory)
-          ? data.paymentHistory.map((record: any) => ({
-            ...record,
-            date: record.date?.toDate() || new Date(),
-          }))
-          : [],
-      } as Invoice;
+      data = docSnap.data();
+      id = docSnap.id;
+    } else {
+      // Try searching by invoiceNumber
+      const q = query(collection(db, 'invoices'), where('invoiceNumber', '==', invoiceId));
+      const querySnap = await getDocs(q);
+      if (querySnap.empty) return null;
+      data = querySnap.docs[0].data();
+      id = querySnap.docs[0].id;
     }
-    return null;
+
+    return {
+      id,
+      ...data,
+      createdAt: data.createdAt?.toDate(),
+      paymentDate: data.paymentDate?.toDate(),
+      dueDate: data.dueDate?.toDate(),
+      approvedAt: data.approvedAt?.toDate(),
+      updatedAt: data.updatedAt?.toDate(),
+      status: data.status || 'draft',
+      approvedBy: data.approvedBy,
+      amountPaid: data.amountPaid || 0,
+      paymentHistory: Array.isArray(data.paymentHistory)
+        ? data.paymentHistory.map((record: any) => ({
+          ...record,
+          date: record.date?.toDate() || new Date(),
+        }))
+        : [],
+      pendingPayments: Array.isArray(data.pendingPayments)
+        ? data.pendingPayments.map((pp: any) => ({
+          ...pp,
+          date: pp.date?.toDate() || new Date(),
+        }))
+        : [],
+      invoiceNumber: data.invoiceNumber,
+    } as Invoice;
   },
 
-  async createInvoice(invoice: Omit<Invoice, 'id' | 'createdAt'>): Promise<string> {
+  async getNextSequenceNumber(workshopId: string, type: 'invoice' | 'quote'): Promise<string> {
+    const counterRef = doc(db, 'workshops', workshopId, 'counters', type);
+    
+    return await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      let nextNum = 1;
+      
+      if (counterDoc.exists()) {
+        nextNum = (counterDoc.data().current || 0) + 1;
+      }
+      
+      transaction.set(counterRef, { current: nextNum }, { merge: true });
+      
+      const prefix = type === 'invoice' ? 'inv' : 'qt';
+      return `${prefix}-${nextNum.toString().padStart(3, '0')}`;
+    });
+  },
+
+  async createInvoice(invoice: Omit<Invoice, 'id' | 'createdAt' | 'invoiceNumber'>): Promise<string> {
+    const workshopId = invoice.workshopId;
+    const invoiceNumber = await this.getNextSequenceNumber(workshopId, 'invoice');
+    
     const timestamp = Date.now().toString();
     const lastFour = timestamp.slice(-4);
     const customerIdentifier = invoice.userId ? invoice.userId.slice(0, 8) : 'DIRECT';
@@ -254,6 +295,7 @@ export const firebaseService = {
     const docRef = doc(db, 'invoices', invoiceId);
     await setDoc(docRef, {
       ...cleanInvoice,
+      invoiceNumber,
       status: cleanInvoice.status || 'draft',
       createdAt: Timestamp.now(),
     });
@@ -276,9 +318,19 @@ export const firebaseService = {
     if (updateData.paymentDate) updateData.paymentDate = Timestamp.fromDate(updateData.paymentDate);
     if (updateData.approvedAt) updateData.approvedAt = Timestamp.fromDate(updateData.approvedAt);
     if (updateData.paymentHistory) {
-      updateData.paymentHistory = updateData.paymentHistory.map((record: any) => ({
-        ...record,
-        date: Timestamp.fromDate(record.date),
+      updateData.paymentHistory = updateData.paymentHistory.map((record: any) => {
+        const clean: any = {};
+        for (const [k, v] of Object.entries(record)) {
+          if (v !== undefined) clean[k] = v;
+        }
+        if (clean.date instanceof Date) clean.date = Timestamp.fromDate(clean.date);
+        return clean;
+      });
+    }
+    if (updateData.pendingPayments) {
+      updateData.pendingPayments = updateData.pendingPayments.map((pp: any) => ({
+        ...pp,
+        date: pp.date instanceof Date ? Timestamp.fromDate(pp.date) : pp.date,
       }));
     }
 
@@ -317,6 +369,55 @@ export const firebaseService = {
       wasUpdated: isOfflineOverride,
       updatedAt: Timestamp.now(),
     });
+  },
+
+  async confirmPendingPayment(invoiceId: string, pendingPaymentId: string, confirmedBy: string, confirmedByName: string, paymentMethod?: string, verifiedAmount?: number): Promise<void> {
+    const invoice = await this.getInvoice(invoiceId);
+    if (!invoice) throw new Error('Invoice not found');
+
+    const pendingPayments = invoice.pendingPayments || [];
+    const pendingIndex = pendingPayments.findIndex(p => p.id === pendingPaymentId);
+    if (pendingIndex === -1) throw new Error('Pending payment not found');
+
+    const pending = pendingPayments[pendingIndex];
+    const actualAmount = verifiedAmount !== undefined ? verifiedAmount : pending.amount;
+
+    const paymentEntry = {
+      amount: actualAmount,
+      date: pending.date,
+      method: paymentMethod || pending.method,
+      recordedBy: pending.recordedBy,
+      recordedByName: pending.recordedByName,
+      note: `Confirmed by ${confirmedByName}`,
+      entityType: 'invoice' as const,
+      entityId: invoiceId,
+    };
+
+    const newAmountPaid = (invoice.amountPaid || 0) + actualAmount;
+    const paymentHistory = [...(invoice.paymentHistory || []), paymentEntry];
+    const updatedPending = pendingPayments.filter(p => p.id !== pendingPaymentId);
+
+    let newPaymentStatus = invoice.paymentStatus;
+    if (newAmountPaid >= invoice.total) {
+      newPaymentStatus = 'paid';
+    } else if (newAmountPaid > 0) {
+      newPaymentStatus = 'partially_paid';
+    }
+
+    await this.updateInvoice(invoiceId, {
+      amountPaid: newAmountPaid,
+      paymentHistory,
+      paymentStatus: newPaymentStatus,
+      pendingPayments: updatedPending,
+    });
+  },
+
+  async rejectPendingPayment(invoiceId: string, pendingPaymentId: string): Promise<void> {
+    const invoice = await this.getInvoice(invoiceId);
+    if (!invoice) throw new Error('Invoice not found');
+
+    const pendingPayments = (invoice.pendingPayments || []).filter(p => p.id !== pendingPaymentId);
+    await this.updateInvoice(invoiceId, { pendingPayments });
   },
 
   async getInventoryItems(workshopId?: string): Promise<InventoryItem[]> {
@@ -443,46 +544,42 @@ export const firebaseService = {
     }
     return null;
   },
-
-  async createQuote(quote: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-    const docRef = await addDoc(collection(db, 'quotes'), {
-      ...quote,
-      status: 'draft',
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    });
-
-    const invItems = (quote.items || []).filter(i => (i as any).inventoryItemId);
-    if (invItems.length > 0) {
-      await adjustStock(invItems as any, quote.workshopId, 'deduct');
-    }
-
-    return docRef.id;
-  },
-
   async getQuote(quoteId: string): Promise<Quote | null> {
     const docRef = doc(db, 'quotes', quoteId);
     const docSnap = await getDoc(docRef);
+
+    let data: any;
+    let id: string;
+
     if (docSnap.exists()) {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        ...data,
-        createdAt: data.createdAt?.toDate(),
-        updatedAt: data.updatedAt?.toDate(),
-        sentAt: data.sentAt?.toDate(),
-        items: Array.isArray(data.items) ? data.items.map((item: any) => ({
-          ...item,
-          addedAt: item.addedAt?.toDate(),
-          approvedAt: item.approvedAt?.toDate(),
-        })) : [],
-        history: Array.isArray(data.history) ? data.history.map((log: any) => ({
-          ...log,
-          timestamp: log.timestamp?.toDate(),
-        })) : [],
-      } as Quote;
+      data = docSnap.data();
+      id = docSnap.id;
+    } else {
+      // Try searching by quoteNumber
+      const q = query(collection(db, 'quotes'), where('quoteNumber', '==', quoteId));
+      const querySnap = await getDocs(q);
+      if (querySnap.empty) return null;
+      data = querySnap.docs[0].data();
+      id = querySnap.docs[0].id;
     }
-    return null;
+
+    return {
+      id,
+      ...data,
+      createdAt: data.createdAt?.toDate(),
+      updatedAt: data.updatedAt?.toDate(),
+      sentAt: data.sentAt?.toDate(),
+      items: Array.isArray(data.items) ? data.items.map((item: any) => ({
+        ...item,
+        addedAt: item.addedAt?.toDate(),
+        approvedAt: item.approvedAt?.toDate(),
+      })) : [],
+      history: Array.isArray(data.history) ? data.history.map((log: any) => ({
+        ...log,
+        timestamp: log.timestamp?.toDate(),
+      })) : [],
+      quoteNumber: data.quoteNumber,
+    } as Quote;
   },
 
   async getQuotes(workshopId?: string, userId?: string): Promise<Quote[]> {
@@ -514,6 +611,7 @@ export const firebaseService = {
           ...log,
           timestamp: log.timestamp?.toDate(),
         })) : [],
+        quoteNumber: data.quoteNumber,
       };
     }) as Quote[];
   },
@@ -631,6 +729,27 @@ export const firebaseService = {
       } as Job;
     }
     return null;
+  },
+
+  async createQuote(quote: Omit<Quote, 'id' | 'createdAt' | 'updatedAt' | 'quoteNumber'>): Promise<string> {
+    const workshopId = quote.workshopId;
+    const quoteNumber = await this.getNextSequenceNumber(workshopId, 'quote');
+    
+    const docRef = doc(collection(db, 'quotes'));
+    await setDoc(docRef, {
+      ...quote,
+      quoteNumber,
+      status: quote.status || 'draft',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+
+    const invItems = (quote.items || []).filter(i => (i as any).inventoryItemId);
+    if (invItems.length > 0) {
+      await adjustStock(invItems as any, quote.workshopId, 'deduct');
+    }
+
+    return docRef.id;
   },
 
   async createJob(job: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {

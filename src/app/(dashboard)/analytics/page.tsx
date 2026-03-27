@@ -21,7 +21,8 @@ import {
     Layers,
     Car,
     Wrench,
-    DollarSign
+    DollarSign,
+    Download
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
@@ -268,6 +269,27 @@ export default function AnalyticsPage() {
 
         const completedJobs = filteredJobs.filter(j => j.status === 'completed');
 
+        const globalInventoryAdded = inventory.filter(item => {
+            const itemDate = item.createdAt instanceof Date ? item.createdAt : (item.createdAt as any)?.toDate ? (item.createdAt as any).toDate() : new Date(item.createdAt);
+            return itemDate && isWithinInterval(itemDate, { start, end });
+        });
+
+        const globalInventorySold: any[] = [];
+        invoices.forEach(inv => {
+            inv.items?.forEach((item: any) => {
+                const invDate = inv.createdAt instanceof Date ? inv.createdAt : (inv.createdAt as any)?.toDate ? (inv.createdAt as any).toDate() : new Date(inv.createdAt);
+                if (item.inventoryItemId && invDate && isWithinInterval(invDate, { start, end })) {
+                    globalInventorySold.push({
+                        ...item,
+                        unitPrice: item.unitPrice || item.price || 0,
+                        invoiceId: inv.id,
+                        invoiceNumber: inv.invoiceNumber,
+                        date: invDate
+                    });
+                }
+            });
+        });
+
         return {
             totalRevenue,
             completedCount: completedJobs.length,
@@ -278,9 +300,53 @@ export default function AnalyticsPage() {
             totalStockValue,
             topIssuesByVolume,
             topIssuesByRevenue,
-            topBrands
+            topBrands,
+            globalInventoryAdded,
+            globalInventorySold
         };
     }, [filteredJobs, jobs, invoices, inventory, vehicles, dateRange, selectedTechId, selectedJobTypes, technicians, allUsers]);
+
+    const downloadGlobalInventoryReport = () => {
+        const csvRows = [];
+        csvRows.push(["Type", "Date", "Item Name/Description", "Quantity", "Price/Value", "Reference"]);
+
+        analyticsStats.globalInventoryAdded.forEach(item => {
+            const itemDate = item.createdAt instanceof Date ? item.createdAt : (item.createdAt as any)?.toDate ? (item.createdAt as any).toDate() : new Date(item.createdAt);
+            csvRows.push([
+                "ADDED",
+                itemDate ? format(itemDate, "yyyy-MM-dd") : "—",
+                item.name,
+                item.quantity.toString(),
+                item.unitPrice.toString(),
+                item.sku || "N/A"
+            ]);
+        });
+
+        analyticsStats.globalInventorySold.forEach(item => {
+            const soldDate = item.date instanceof Date ? item.date : (item.date as any)?.toDate ? (item.date as any).toDate() : new Date(item.date);
+            csvRows.push([
+                "SOLD",
+                soldDate ? format(soldDate, "yyyy-MM-dd") : "—",
+                item.description,
+                item.quantity.toString(),
+                (item.unitPrice * item.quantity).toString(),
+                item.invoiceNumber || item.invoiceId
+            ]);
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + csvRows.map(e => e.join(",")).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const startDateStr = format(startOfDay(new Date(dateRange.start)), "EEEE do MMMM, yyyy");
+        const endDateStr = format(endOfDay(new Date(dateRange.end)), "EEEE do MMMM, yyyy");
+        const fileName = `ABM TEK ${startDateStr} - ${endDateStr} Inventory Report.csv`;
+
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", fileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     const resetFilters = () => {
         setDateRange({
@@ -298,18 +364,28 @@ export default function AnalyticsPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="space-y-1">
                     <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-                        Technician Analytics
+                        Technician Performance
                     </h2>
-                    <p className="text-lg text-gray-500 font-medium whitespace-nowrap">
-                        Track performance and workshop productivity
-                    </p>
+                    <p className="text-gray-500 font-medium">Insights and activity dashboard</p>
                 </div>
-                <button
-                    onClick={resetFilters}
-                    className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 font-bold text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm"
-                >
-                    <FilterX className="h-4 w-4" /> Reset Filters
-                </button>
+                <div className="flex items-center gap-3">
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="bg-white border-none shadow-sm h-11 px-6 rounded-xl flex items-center gap-2 hover:bg-gray-50"
+                        onClick={downloadGlobalInventoryReport}
+                    >
+                        <Download className="h-4 w-4" /> Export Inventory Report
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={resetFilters}
+                        className="bg-white border-none shadow-sm h-11 px-6 rounded-xl flex items-center gap-2 hover:bg-gray-50"
+                    >
+                        <FilterX className="h-4 w-4" /> Reset Filters
+                    </Button>
+                </div>
             </div>
 
             {/* Filters */}

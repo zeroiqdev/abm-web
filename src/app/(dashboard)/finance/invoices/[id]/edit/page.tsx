@@ -215,7 +215,16 @@ export default function EditInvoicePage() {
 
         setIsSubmitting(true);
         try {
-            const updateData = {
+            const amountPaid = invoice.amountPaid || 0;
+            let newPaymentStatus = invoice.paymentStatus;
+
+            if (total > amountPaid) {
+                newPaymentStatus = amountPaid > 0 ? 'partially_paid' : 'pending';
+            } else if (total <= amountPaid && amountPaid > 0) {
+                newPaymentStatus = 'paid';
+            }
+
+            const updateData: Record<string, any> = {
                 customerName,
                 customerPhone,
                 customerEmail,
@@ -226,10 +235,14 @@ export default function EditInvoicePage() {
                 vatRate: parseFloat(vatRate) || 0,
                 discount: discountAmount,
                 total,
-                dueDate: dueDate ? new Date(dueDate) : undefined,
+                paymentStatus: newPaymentStatus,
             };
+            if (dueDate) {
+                updateData.dueDate = new Date(dueDate);
+            }
 
             await firebaseService.updateInvoice(invoice.id, updateData);
+            toast.success("Invoice updated");
             router.push(`/finance/invoices/${invoice.id}`);
         } catch (error) {
             console.error("Failed to update invoice:", error);

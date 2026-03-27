@@ -24,9 +24,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, Plus, Minus, Inbox, Loader2, ArrowLeft, Check, Package } from "lucide-react";
+import { Search, Plus, Minus, Inbox, Loader2, ArrowLeft, Check, Package, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 export default function InventoryPage() {
     const { user } = useAuthStore();
@@ -46,6 +47,9 @@ export default function InventoryPage() {
 
     const [existingUnitIds, setExistingUnitIds] = useState<string[]>([]);
     const [newUnitIds, setNewUnitIds] = useState<string[]>([]);
+
+    const [isDamaging, setIsDamaging] = useState(false);
+    const [damageQuantity, setDamageQuantity] = useState("");
 
     const totalQuantity = existingUnitIds.length + newUnitIds.length;
 
@@ -100,6 +104,48 @@ export default function InventoryPage() {
         setExistingUnitIds(item.unitIds || []);
         setNewUnitIds([]);
         setIsDialogOpen(true);
+    };
+
+    const handleMarkAsDamaged = async () => {
+        if (!editingItem || !damageQuantity) return;
+        const amount = parseInt(damageQuantity);
+        if (isNaN(amount) || amount <= 0) {
+            toast.error("Please enter a valid quantity");
+            return;
+        }
+        if (amount > editingItem.quantity) {
+            toast.error("Damaged quantity cannot exceed current stock");
+            return;
+        }
+
+        setIsDamaging(true);
+        try {
+            const updatedUnitIds = [...(editingItem.unitIds || [])];
+            if (updatedUnitIds.length >= amount) {
+                for (let i = 0; i < amount; i++) {
+                    updatedUnitIds.pop();
+                }
+            }
+
+            const updatedData: any = {
+                quantity: editingItem.quantity - amount,
+                damagedQuantity: (editingItem.damagedQuantity || 0) + amount,
+                unitIds: updatedUnitIds,
+                updatedAt: new Date(),
+            };
+
+            await firebaseService.updateInventoryItem(editingItem.id, updatedData);
+            
+            setItems(items.map(i => i.id === editingItem.id ? { ...i, ...updatedData } : i));
+            toast.success(`${amount} units marked as damaged`);
+            setDamageQuantity("");
+            setIsDialogOpen(false);
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to mark as damaged");
+        } finally {
+            setIsDamaging(false);
+        }
     };
 
     const generateUniqueId = (): string => {
@@ -229,6 +275,7 @@ export default function InventoryPage() {
                 sellingPrice: parseFloat(formSellingPrice) || 0,
                 unitPrice: parseFloat(formSellingPrice) || 0,
                 unitIds: finalUnitIds,
+                addedBy: user?.id,
             };
 
             if (editingItem) {
@@ -236,7 +283,7 @@ export default function InventoryPage() {
                 setItems(items.map(i => i.id === editingItem.id ? { ...i, ...itemData } : i));
             } else {
                 const newId = await firebaseService.createInventoryItem(itemData);
-                setItems([...items, { id: newId, ...itemData, createdAt: new Date(), updatedAt: new Date() } as InventoryItem]);
+                setItems([...items, { id: newId, ...itemData, createdAt: new Date(), updatedAt: new Date(), addedBy: user?.id } as InventoryItem]);
             }
 
             setIsDialogOpen(false);
@@ -277,6 +324,7 @@ export default function InventoryPage() {
                             <TableHead className="pl-8">Part Name</TableHead>
                             <TableHead>Vendor</TableHead>
                             <TableHead>SKU</TableHead>
+                            <TableHead>Date Added</TableHead>
                             <TableHead className="text-right">Stock</TableHead>
                             <TableHead className="text-right">Selling Price</TableHead>
                             <TableHead className="text-right pr-8">Status</TableHead>
@@ -310,7 +358,17 @@ export default function InventoryPage() {
                                     <TableCell className="font-medium pl-8">{item.name}</TableCell>
                                     <TableCell className="text-gray-500">{item.vendor || "—"}</TableCell>
                                     <TableCell className="text-gray-500 font-mono text-xs">{item.sku || "—"}</TableCell>
-                                    <TableCell className="text-right">{item.quantity}</TableCell>
+                                    <TableCell className="text-gray-500 text-xs">
+                                        {item.createdAt ? format(item.createdAt, 'MMM d, yyyy') : '—'}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex flex-col items-end">
+                                            <span>{item.quantity}</span>
+                                            {item.damagedQuantity && item.damagedQuantity > 0 && (
+                                                <span className="text-[10px] text-red-500 font-medium">({item.damagedQuantity} damaged)</span>
+                                            )}
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="text-right">₦{(item.sellingPrice || item.unitPrice || 0).toLocaleString()}</TableCell>
                                     <TableCell className="text-right pr-8">
                                         {item.quantity <= (item.minStockLevel || 5) ? (
@@ -477,6 +535,38 @@ export default function InventoryPage() {
                                 />
                             </div>
                         </div>
+                        {editingItem && (
+                            <>
+                                <Separator />
+                                <div className="space-y-4 pt-2">
+                                    <Label className="text-sm font-semibold text-red-600 flex items-center gap-2">
+                                        <AlertTriangle className="h-4 w-4" /> Mark as Damaged
+                                    </Label>
+                                    <div className="flex items-center gap-3">
+                                        <Input
+                                            type="number"
+                                            placeholder="Qty damaged"
+                                            value={damageQuantity}
+                                            onChange={(e) => setDamageQuantity(e.target.value)}
+                                            className="w-32 h-9"
+                                        />
+                                        <Button 
+                                            variant="destructive" 
+                                            size="sm"
+                                            onClick={handleMarkAsDamaged}
+                                            disabled={isDamaging || !damageQuantity}
+                                            className="h-9"
+                                        >
+                                            {isDamaging && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                                            Confirm Damaged
+                                        </Button>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 italic">
+                                        Marking items as damaged will remove them from available stock.
+                                    </p>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     <div className="flex justify-end gap-3 pt-2">
