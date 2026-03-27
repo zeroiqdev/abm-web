@@ -76,6 +76,162 @@ export default function TechnicianDetailsPage() {
         fetchData();
     }, [user, id, initialized]);
 
+    const handleBack = () => {
+        router.push("/analytics");
+    };
+
+    const filteredJobs = useMemo(() => {
+        if (!id) return [];
+        const start = startOfDay(new Date(dateRange.start));
+        const end = endOfDay(new Date(dateRange.end));
+
+        return jobs.filter(job => {
+            const isTechAssigned = (job.assignedTechnicianIds?.includes(id as string)) || (job.assignedTechnicianId === id);
+            if (!isTechAssigned) return false;
+
+            const createdAt = job.createdAt ? new Date(job.createdAt) : new Date();
+            const completedAt = job.completedAt ? new Date(job.completedAt) : null;
+
+            const createdMatch = isWithinInterval(createdAt, { start, end });
+            const completedMatch = completedAt && isWithinInterval(completedAt, { start, end });
+
+            const jobInvoices = invoices.filter(inv => inv.jobId === job.id);
+            const paymentMatch = jobInvoices.some(inv =>
+                inv.paymentHistory?.some((p: any) => {
+                    const pDate = p.date ? new Date(p.date) : null;
+                    return pDate && isWithinInterval(pDate, { start, end });
+                })
+            );
+
+            const typeMatch = selectedJobTypes.length === 0 || selectedJobTypes.includes(job.type);
+
+            return (createdMatch || completedMatch || paymentMatch) && typeMatch;
+        });
+    }, [jobs, id, dateRange, selectedJobTypes, invoices]);
+
+    const stats = useMemo(() => {
+        const start = startOfDay(new Date(dateRange.start));
+        const end = endOfDay(new Date(dateRange.end));
+
+        const completedJobs = filteredJobs.filter(j => {
+            const cDate = j.completedAt ? new Date(j.completedAt) : null;
+            return j.status === 'completed' && cDate && isWithinInterval(cDate, { start, end });
+        });
+
+        const totalRevenue = invoices.reduce((acc: number, inv: any) => {
+            const job = jobs.find(j => j.id === inv.jobId);
+            const isTechAssigned = job && ((job.assignedTechnicianIds?.includes(id as string)) || (job.assignedTechnicianId === id));
+            if (!isTechAssigned) return acc;
+
+            if (!inv.paymentHistory || !Array.isArray(inv.paymentHistory)) return acc;
+
+            const periodPayments = inv.paymentHistory.reduce((sum: number, p: any) => {
+                const pDate = p.date ? new Date(p.date) : null;
+                if (pDate && isWithinInterval(pDate, { start, end })) {
+                    return sum + (p.amount || 0);
+                }
+                return sum;
+            }, 0);
+
+            return acc + periodPayments;
+        }, 0);
+
+        return {
+            completedJobsCount: completedJobs.length,
+            totalRevenue,
+            averageJobValue: completedJobs.length > 0 ? totalRevenue / completedJobs.length : 0,
+            onTimeRate: completedJobs.length > 0 ? 100 : 0
+        };
+    }, [filteredJobs, invoices, id, dateRange, jobs]);
+
+    const inventoryStats = useMemo(() => {
+        const start = startOfDay(new Date(dateRange.start));
+        const end = endOfDay(new Date(dateRange.end));
+
+        // Items added by this technician
+        const added = inventory.filter(item => {
+            if (item.addedBy !== id) return false;
+            const itemDate = item.createdAt instanceof Date ? item.createdAt : (item.createdAt as any)?.toDate ? (item.createdAt as any).toDate() : new Date(item.createdAt);
+            return itemDate && isWithinInterval(itemDate, { start, end });
+        });
+
+        // Items sold (parts on invoices for jobs assigned to this tech)
+        const sold: any[] = [];
+        const techJobs = filteredJobs.map(j => j.id);
+        
+        invoices.forEach(inv => {
+            if (techJobs.includes(inv.jobId)) {
+                inv.items?.forEach((item: any) => {
+                    const invDate = inv.createdAt instanceof Date ? inv.createdAt : (inv.createdAt as any)?.toDate ? (inv.createdAt as any).toDate() : new Date(inv.createdAt);
+                    if (item.inventoryItemId && invDate && isWithinInterval(invDate, { start, end })) {
+                        sold.push({
+                            ...item,
+                            unitPrice: item.unitPrice || item.price || 0,
+                            invoiceId: inv.id,
+                            invoiceNumber: inv.invoiceNumber,
+                            date: invDate
+                        });
+                    }
+                });
+            }
+        });
+
+        return { added, sold };
+    }, [inventory, invoices, filteredJobs, dateRange, id]);
+
+    const downloadInventoryReport = () => {
+        const csvRows = [];
+        csvRows.push(["Type", "Date", "Item Name", "Quantity", "Price", "Reference"]);
+
+        inventoryStats.added.forEach(item => {
+            const itemDate = item.createdAt instanceof Date ? item.createdAt : (item.createdAt as any)?.toDate ? (item.createdAt as any).toDate() : new Date(item.createdAt);
+            csvRows.push([
+                "ADDED",
+                itemDate ? format(itemDate, "yyyy-MM-dd") : "—",
+                item.name,
+                item.quantity.toString(),
+                item.unitPrice.toString(),
+                item.sku || "N/A"
+            ]);
+        });
+
+        inventoryStats.sold.forEach(item => {
+            const soldDate = item.date instanceof Date ? item.date : (item.date as any)?.toDate ? (item.date as any).toDate() : new Date(item.date);
+            csvRows.push([
+                "SOLD",
+                soldDate ? format(soldDate, "yyyy-MM-dd") : "—",
+                item.description,
+                item.quantity.toString(),
+                (item.unitPrice * item.quantity).toString(),
+                item.invoiceNumber || item.invoiceId
+            ]);
+        });
+
+        // Summary Rows
+        const totalAdded = (inventoryStats.added || []).reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0);
+        const totalSold = (inventoryStats.sold || []).reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0);
+
+        csvRows.push([]);
+        csvRows.push(["SUMMARY", "", "", "", "", ""]);
+        csvRows.push(["Total Items Added", "", "", totalAdded.toString(), "", ""]);
+        csvRows.push(["Total Items Used (Sold)", "", "", totalSold.toString(), "", ""]);
+        csvRows.push(["Net Flow", "", "", (totalAdded - totalSold).toString(), "", ""]);
+
+        const csvContent = "data:text/csv;charset=utf-8," + csvRows.map(e => e.join(",")).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        
+        const startDateStr = format(startOfDay(new Date(dateRange.start)), "EEEE do MMMM, yyyy");
+        const endDateStr = format(endOfDay(new Date(dateRange.end)), "EEEE do MMMM, yyyy");
+        const fileName = `ABM TEK ${startDateStr} - ${endDateStr} Inventory Report.csv`;
+
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", fileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (loading) return (
         <div className="flex h-screen w-full items-center justify-center bg-gray-50/50">
             <Activity className="h-8 w-8 animate-spin text-blue-600" />
@@ -104,181 +260,6 @@ export default function TechnicianDetailsPage() {
             return "—";
         }
     };
-
-    const handleBack = () => {
-        router.push("/analytics");
-    };
-
-    const filteredJobs = useMemo(() => {
-        const start = startOfDay(new Date(dateRange.start));
-        const end = endOfDay(new Date(dateRange.end));
-
-        return jobs.filter(job => {
-            const isTechAssigned = (job.assignedTechnicianIds?.includes(id as string)) || (job.assignedTechnicianId === id);
-            if (!isTechAssigned) return false;
-
-            const createdAt = job.createdAt ? new Date(job.createdAt) : new Date();
-            const completedAt = job.completedAt ? new Date(job.completedAt) : null;
-
-            const createdMatch = isWithinInterval(createdAt, { start, end });
-
-            const completedMatch = completedAt && isWithinInterval(completedAt, { start, end });
-
-            const jobInvoices = invoices.filter(inv => inv.jobId === job.id);
-            const paymentMatch = jobInvoices.some(inv =>
-                inv.paymentHistory?.some((p: any) => {
-                    const pDate = p.date ? new Date(p.date) : null;
-                    return pDate && isWithinInterval(pDate, { start, end });
-                })
-            );
-
-            const typeMatch = selectedJobTypes.length === 0 || selectedJobTypes.includes(job.type);
-
-            return (createdMatch || completedMatch || paymentMatch) && typeMatch;
-        });
-    }, [jobs, id, dateRange, selectedJobTypes, invoices]);
-
-    const stats = useMemo(() => {
-        const start = startOfDay(new Date(dateRange.start));
-        const end = endOfDay(new Date(dateRange.end));
-
-        const completedJobs = filteredJobs.filter(j => {
-            const cDate = j.completedAt ? new Date(j.completedAt) : null;
-            return j.status === 'completed' && cDate && isWithinInterval(cDate, { start, end });
-        });
-
-        if (completedJobs.length === 0) {
-            filteredJobs.forEach(j => {
-                if (j.status === 'completed' && j.createdAt && isWithinInterval(new Date(j.createdAt), { start, end })) {
-                    completedJobs.push(j);
-                }
-            });
-        }
-
-        const totalRevenue = filteredJobs.reduce((sum, job) => {
-            const jobInvoices = invoices.filter(inv => inv.jobId === job.id);
-            const techIds = job.assignedTechnicianIds || (job.assignedTechnicianId ? [job.assignedTechnicianId] : []);
-
-            const jobRevenue = jobInvoices.reduce((invSum, inv) => {
-                if (!inv.paymentHistory) return invSum;
-                return invSum + inv.paymentHistory.reduce((pSum: number, p: any) => {
-                    const pDate = p.date ? new Date(p.date) : null;
-                    if (pDate && isWithinInterval(pDate, { start, end })) {
-                        return pSum + ((p.amount || 0) / (techIds.length || 1));
-                    }
-                    return pSum;
-                }, 0);
-            }, 0);
-
-            return sum + jobRevenue;
-        }, 0);
-
-        return {
-            totalJobs: completedJobs.length,
-            totalRevenue,
-            activeJobs: filteredJobs.filter(j => j.status !== 'completed').length
-        };
-    }, [filteredJobs, invoices, dateRange, id]);
-
-    const inventoryStats = useMemo(() => {
-        const start = startOfDay(new Date(dateRange.start));
-        const end = endOfDay(new Date(dateRange.end));
-
-        // Items added by tech
-        const added = inventory.filter(item => {
-            if (!item.addedBy || item.addedBy !== id) return false;
-            const itemDate = item.createdAt instanceof Date ? item.createdAt : (item.createdAt as any)?.toDate ? (item.createdAt as any).toDate() : new Date(item.createdAt);
-            return itemDate && isWithinInterval(itemDate, { start, end });
-        });
-
-        // Items sold (parts on invoices for jobs assigned to this tech)
-        const sold: any[] = [];
-        const techJobs = filteredJobs.map(j => j.id);
-        
-        invoices.forEach(inv => {
-            if (techJobs.includes(inv.jobId)) {
-                // Check if invoice items are from inventory
-                inv.items?.forEach((item: any) => {
-                    const invDate = inv.createdAt instanceof Date ? inv.createdAt : (inv.createdAt as any)?.toDate ? (inv.createdAt as any).toDate() : new Date(inv.createdAt);
-                    if (item.inventoryItemId && invDate && isWithinInterval(invDate, { start, end })) {
-                        sold.push({
-                            ...item,
-                            invoiceId: inv.id,
-                            invoiceNumber: inv.invoiceNumber,
-                            date: invDate
-                        });
-                    }
-                });
-            }
-        });
-
-        return { added, sold };
-    }, [inventory, invoices, filteredJobs, dateRange, id]);
-
-    const downloadInventoryReport = () => {
-        const csvRows = [];
-        // Header
-        csvRows.push(["Type", "Date", "Item Name", "Quantity", "Price", "Reference"]);
-
-        // Added items
-        inventoryStats.added.forEach(item => {
-            const itemDate = item.createdAt instanceof Date ? item.createdAt : (item.createdAt as any)?.toDate ? (item.createdAt as any).toDate() : new Date(item.createdAt);
-            csvRows.push([
-                "ADDED",
-                itemDate ? format(itemDate, "yyyy-MM-dd") : "—",
-                item.name,
-                item.quantity.toString(),
-                item.unitPrice.toString(),
-                item.sku || "N/A"
-            ]);
-        });
-
-        // Sold items
-        inventoryStats.sold.forEach(item => {
-            const soldDate = item.date instanceof Date ? item.date : (item.date as any)?.toDate ? (item.date as any).toDate() : new Date(item.date);
-            csvRows.push([
-                "SOLD",
-                soldDate ? format(soldDate, "yyyy-MM-dd") : "—",
-                item.description,
-                item.quantity.toString(),
-                (item.unitPrice * item.quantity).toString(),
-                item.invoiceNumber || item.invoiceId
-            ]);
-        });
-
-        const csvContent = "data:text/csv;charset=utf-8," + csvRows.map(e => e.join(",")).join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const startDateStr = format(startOfDay(new Date(dateRange.start)), "EEEE do MMMM, yyyy");
-        const endDateStr = format(endOfDay(new Date(dateRange.end)), "EEEE do MMMM, yyyy");
-        const fileName = `ABM TEK ${startDateStr} - ${endDateStr} Inventory Report.csv`;
-
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", fileName);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    if (loading) {
-        return (
-            <div className="p-8 flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-            </div>
-        );
-    }
-
-    if (!technician) {
-        return (
-            <div className="p-8 text-center">
-                <p className="text-gray-500">Technician not found.</p>
-                <Button variant="ghost" className="mt-4" onClick={() => router.back()}>
-                    <ChevronLeft className="h-4 w-4 mr-2" /> Back to Analytics
-                </Button>
-            </div>
-        );
-    }
-
     return (
         <div className="p-8 space-y-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">

@@ -334,6 +334,16 @@ export default function AnalyticsPage() {
             ]);
         });
 
+        // Summary Rows
+        const totalAdded = (analyticsStats.globalInventoryAdded || []).reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0);
+        const totalSold = (analyticsStats.globalInventorySold || []).reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0);
+
+        csvRows.push([]);
+        csvRows.push(["SUMMARY", "", "", "", "", ""]);
+        csvRows.push(["Total Items Added", "", "", totalAdded.toString(), "", ""]);
+        csvRows.push(["Total Items Used (Sold)", "", "", totalSold.toString(), "", ""]);
+        csvRows.push(["Net Flow", "", "", (totalAdded - totalSold).toString(), "", ""]);
+
         const csvContent = "data:text/csv;charset=utf-8," + csvRows.map(e => e.join(",")).join("\n");
         const encodedUri = encodeURI(csvContent);
         const startDateStr = format(startOfDay(new Date(dateRange.start)), "EEEE do MMMM, yyyy");
@@ -369,9 +379,9 @@ export default function AnalyticsPage() {
                     <p className="text-gray-500 font-medium">Insights and activity dashboard</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
+                    <Button
+                        variant="outline"
+                        size="sm"
                         className="bg-white border-none shadow-sm h-11 px-6 rounded-xl flex items-center gap-2 hover:bg-gray-50"
                         onClick={downloadGlobalInventoryReport}
                     >
