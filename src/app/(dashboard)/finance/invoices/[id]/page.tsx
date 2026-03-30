@@ -78,7 +78,7 @@ export default function InvoiceDetailsPage() {
                     }
                 }
             } catch (error) {
-                console.error(error);
+                console.error("Error fetching invoice:", error);
             } finally {
                 setLoading(false);
             }
@@ -106,6 +106,7 @@ export default function InvoiceDetailsPage() {
     if (!invoice) return <div>Invoice not found</div>;
 
     const handlePrint = () => {
+        if (!invoice) return;
         const oldTitle = document.title;
         document.title = invoice.invoiceNumber || invoice.id;
         window.print();
@@ -390,7 +391,7 @@ export default function InvoiceDetailsPage() {
                     <div className="grid grid-cols-2 gap-12">
                         <div className="space-y-4">
                             <div>
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Bill To</h3>
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Customer Details</h3>
                                 <p className="text-lg font-semibold text-gray-900">{invoice.customerName || "Walk-in Customer"}</p>
                                 <div className="mt-1 space-y-0.5">
                                     <p className="text-sm text-gray-600">{invoice.customerEmail}</p>
@@ -683,25 +684,25 @@ export default function InvoiceDetailsPage() {
 
                     <Separator className="bg-gray-100" />
 
-                    <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100">
-                        <div className="flex items-center justify-between flex-wrap gap-4">
-                            <div className="flex items-center gap-6 text-sm">
+                    <div className="bg-gray-50/80 p-3 rounded-xl border border-gray-100 mt-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-4 text-[11px]">
                                 <div className="flex items-center gap-1.5">
-                                    <span className="text-gray-400 font-medium">Bank:</span>
+                                    <span className="text-gray-400 font-medium font-mono text-[10px]">BANK:</span>
                                     <span className="font-bold text-gray-900">MONIEPOINT MFB</span>
                                 </div>
-                                <span className="text-gray-300">|</span>
+                                <span className="text-gray-200">|</span>
                                 <div className="flex items-center gap-1.5">
-                                    <span className="text-gray-400 font-medium">Acc No:</span>
-                                    <span className="font-black text-gray-900 tracking-wider">5071154448</span>
+                                    <span className="text-gray-400 font-medium font-mono text-[10px]">ACC NO:</span>
+                                    <span className="font-bold text-gray-900 tracking-wider">5071154448</span>
                                 </div>
-                                <span className="text-gray-300">|</span>
+                                <span className="text-gray-200">|</span>
                                 <div className="flex items-center gap-1.5">
-                                    <span className="text-gray-400 font-medium">Name:</span>
+                                    <span className="text-gray-400 font-medium font-mono text-[10px]">ACCOUNT NAME:</span>
                                     <span className="font-bold text-gray-900 uppercase">ABDULLATEEF BABA MUSTAPHA</span>
                                 </div>
                             </div>
-                            <span className="text-xs text-gray-400">Thank you for your patronage!</span>
+                            <span className="text-[10px] text-gray-400 font-medium italic">Thank you for your patronage!</span>
                         </div>
                     </div>
 
@@ -902,23 +903,29 @@ export default function InvoiceDetailsPage() {
             <style jsx global>{`
                 @media print {
                     .no-print { display: none !important; }
-                    body { background: white !important; margin: 0 !important; padding: 0 !important; font-size: 11px !important; }
+                    @page {
+                        size: auto;
+                        margin: 0;
+                    }
+                    body {
+                        background: white !important;
+                        margin: 1.6cm !important;
+                        padding: 0 !important;
+                        font-size: 11px !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
                     nav, header, aside, footer { display: none !important; }
                     main { padding: 0 !important; margin: 0 !important; }
                     [class*="shadow"] { box-shadow: none !important; }
-                    [class*="Card"] { border: none !important; box-shadow: none !important; margin: 0 !important; }
-                    table { font-size: 11px !important; }
+                    [class*="Card"] { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
+                    table { font-size: 11px !important; width: 100% !important; }
                     th, td { padding: 0.35rem 0.5rem !important; }
-                    .space-y-10 > * + * { margin-top: 1.5rem !important; }
+                    .space-y-10 > * + * { margin-top: 1.25rem !important; }
                     .gap-12 { gap: 2rem !important; }
-                    .pt-8 { padding-top: 1rem !important; }
-                    .p-8 { padding: 0 !important; }
-                    img { max-height: 50px !important; }
-                    @page {
-                      margin: 0.5cm;
-                      size: A4;
-                    }
-                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .pt-8 { padding-top: 0.5rem !important; }
+                    img { max-height: 60px !important; width: auto !important; }
+                    .bg-gray-50\/80 { background-color: #f9fafb !important; border: 1px solid #f3f4f6 !important; }
                     .nextjs-static-indicator-toast-wrapper { display: none !important; }
                 }
             `}</style>
