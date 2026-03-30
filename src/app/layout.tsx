@@ -18,7 +18,9 @@ export const metadata: Metadata = {
   title: "ABM",
   description: "ABM Workshop & Fleet Management",
   icons: {
-    icon: "/admin/favicon.ico",
+    icon: "https://res.cloudinary.com/dyg7neetr/image/upload/v1772036824/ABM_BLACK_g6i4dm.png",
+    shortcut: "https://res.cloudinary.com/dyg7neetr/image/upload/v1772036824/ABM_BLACK_g6i4dm.png",
+    apple: "https://res.cloudinary.com/dyg7neetr/image/upload/v1772036824/ABM_BLACK_g6i4dm.png",
   },
 };
 
