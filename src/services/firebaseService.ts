@@ -98,6 +98,21 @@ export const firebaseService = {
     return sanitized;
   },
 
+  sanitizeData(data: any): any {
+    if (typeof data !== 'object' || data === null || data instanceof Date || data instanceof Timestamp) {
+      return data;
+    }
+    if (Array.isArray(data)) {
+      return data.map((item: any) => this.sanitizeData(item));
+    }
+    return Object.entries(data).reduce((acc: any, [key, value]) => {
+      if (value !== undefined) {
+        acc[key] = this.sanitizeData(value);
+      }
+      return acc;
+    }, {} as any);
+  },
+
   async getUser(userId: string): Promise<User | null> {
     const docRef = doc(db, 'users', userId);
     const docSnap = await getDoc(docRef);
@@ -745,13 +760,13 @@ export const firebaseService = {
     const quoteNumber = await this.getNextSequenceNumber(workshopId, 'quote');
     
     const docRef = doc(collection(db, 'quotes'));
-    await setDoc(docRef, {
+    await setDoc(docRef, this.sanitizeData({
       ...quote,
       quoteNumber,
       status: quote.status || 'draft',
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
-    });
+    }));
 
     const invItems = (quote.items || []).filter(i => (i as any).inventoryItemId);
     if (invItems.length > 0) {
@@ -762,11 +777,11 @@ export const firebaseService = {
   },
 
   async createJob(job: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-    const docRef = await addDoc(collection(db, 'jobs'), {
+    const docRef = await addDoc(collection(db, 'jobs'), this.sanitizeData({
       ...job,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
-    });
+    }));
 
     if (job.partsUsed && job.partsUsed.length > 0) {
       await adjustStock(job.partsUsed, job.workshopId, 'deduct');

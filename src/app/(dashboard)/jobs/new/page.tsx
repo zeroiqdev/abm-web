@@ -225,7 +225,15 @@ export default function CreateJobPage() {
                 jobData.technicianNames = selectedTechnicianIds.map(id => technicians.find(t => t.id === id)?.name || '');
             }
 
-            const jobId = await firebaseService.createJob(jobData);
+            let jobId: string;
+            try {
+                jobId = await firebaseService.createJob(jobData);
+            } catch (jobError: any) {
+                console.error("Error creating job:", jobError);
+                toast.error(`Failed to create job: ${jobError.message || 'Permission denied'}`);
+                setLoading(false);
+                return;
+            }
 
             const quoteItems = [
                 {
@@ -271,7 +279,15 @@ export default function CreateJobPage() {
                 }]
             };
 
-            await firebaseService.createQuote(quoteData);
+            try {
+                await firebaseService.createQuote(quoteData);
+            } catch (quoteError: any) {
+                console.error("Error creating quote (job was created):", quoteError);
+                toast.error(`Job created but quote failed: ${quoteError.message || 'Permission denied'}`);
+                // Still navigate since the job was created
+                router.push(`/jobs`);
+                return;
+            }
 
             router.push(`/jobs`);
         } catch (error) {
