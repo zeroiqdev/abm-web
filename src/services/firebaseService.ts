@@ -18,7 +18,6 @@ import {
   writeBatch,
   arrayUnion,
   deleteField,
-  runTransaction,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject, uploadString } from 'firebase/storage';
 import { sendPasswordResetEmail as firebaseSendPasswordResetEmail } from 'firebase/auth';
@@ -56,7 +55,7 @@ const adjustStock = async (items: { partId?: string; inventoryItemId?: string; q
   const batch = writeBatch(db);
   for (const item of items) {
     const itemId = item.partId || item.inventoryItemId;
-    if (!itemId) continue;
+    if (!itemId || itemId === 'EXTERNAL') continue;
 
     const itemRef = doc(db, 'inventory', itemId);
     const itemSnap = await getDoc(itemRef);
@@ -162,11 +161,11 @@ export const firebaseService = {
 
   async createCustomer(data: { name: string; phone: string; email?: string; birthday?: string; workshopId: string }): Promise<string> {
     const docRef = doc(collection(db, 'users'));
-    await setDoc(docRef, {
+    const customerData = {
       name: data.name,
       phone: data.phone,
       email: data.email || '',
-      birthday: data.birthday || '',
+      ...(data.birthday ? { birthday: data.birthday } : {}),
       role: 'customer',
       workshopId: data.workshopId,
       connectedWorkshopIds: [data.workshopId],
@@ -174,7 +173,9 @@ export const firebaseService = {
       addedByWorkshopIds: [data.workshopId],
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
-    });
+    };
+
+    await setDoc(docRef, customerData);
     return docRef.id;
   },
 
@@ -259,21 +260,29 @@ export const firebaseService = {
   },
 
   async getNextSequenceNumber(workshopId: string, type: 'invoice' | 'quote'): Promise<string> {
-    const counterRef = doc(db, 'workshops', workshopId, 'counters', type);
-    
-    return await runTransaction(db, async (transaction) => {
-      const counterDoc = await transaction.get(counterRef);
-      let nextNum = 1;
-      
-      if (counterDoc.exists()) {
-        nextNum = (counterDoc.data().current || 0) + 1;
+    const collectionName = type === 'invoice' ? 'invoices' : 'quotes';
+    const numberField = type === 'invoice' ? 'invoiceNumber' : 'quoteNumber';
+    const prefix = type === 'invoice' ? 'inv' : 'qt';
+
+    const q = query(
+      collection(db, collectionName),
+      where('workshopId', '==', workshopId)
+    );
+    const snapshot = await getDocs(q);
+
+    let maxNumber = 0;
+    snapshot.docs.forEach((docSnap) => {
+      const value = docSnap.data()[numberField];
+      if (typeof value === 'string') {
+        const match = value.match(/\d+$/);
+        const numericValue = match ? parseInt(match[0], 10) : NaN;
+        if (!Number.isNaN(numericValue) && numericValue > maxNumber) {
+          maxNumber = numericValue;
+        }
       }
-      
-      transaction.set(counterRef, { current: nextNum }, { merge: true });
-      
-      const prefix = type === 'invoice' ? 'inv' : 'qt';
-      return `${prefix}-${nextNum.toString().padStart(3, '0')}`;
     });
+
+    return `${prefix}-${(maxNumber + 1).toString().padStart(3, '0')}`;
   },
 
   async createInvoice(invoice: Omit<Invoice, 'id' | 'createdAt' | 'invoiceNumber'>): Promise<string> {
