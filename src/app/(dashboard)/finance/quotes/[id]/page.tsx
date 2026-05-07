@@ -386,9 +386,14 @@ export default function QuoteDetailsPage() {
             <style jsx global>{`
                 @media print {
                     .no-print { display: none !important; }
+                    @page {
+                        size: auto;
+                        margin: 0;
+                    }
                     body { 
                         background: white !important; 
                         font-size: 11px !important; 
+                        padding: 1.5cm !important;
                         -webkit-print-color-adjust: exact !important; 
                         print-color-adjust: exact !important;
                     }
