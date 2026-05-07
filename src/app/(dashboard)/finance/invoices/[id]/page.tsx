@@ -909,16 +909,21 @@ export default function InvoiceDetailsPage() {
                     }
                     body {
                         background: white !important;
-                        margin: 1.6cm !important;
-                        padding: 0 !important;
                         font-size: 11px !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
                     nav, header, aside, footer { display: none !important; }
-                    main { padding: 0 !important; margin: 0 !important; }
+                    main { padding: 0 !important; margin: 0 !important; overflow: visible !important; height: auto !important; }
                     [class*="shadow"] { box-shadow: none !important; }
-                    [class*="Card"] { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
+                    [class*="Card"] { 
+                        border: none !important; 
+                        box-shadow: none !important; 
+                        margin: 0 !important; 
+                        padding: 0 !important; 
+                        overflow: visible !important;
+                        height: auto !important;
+                    }
                     table { font-size: 11px !important; width: 100% !important; }
                     th, td { padding: 0.35rem 0.5rem !important; }
                     .space-y-10 > * + * { margin-top: 1.25rem !important; }

@@ -123,3 +123,46 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background-color: white !important;
+  }
+
+  /* Reset layout constraints for printing */
+  /* Target the specific classes found in layout.tsx */
+  div.flex.h-screen,
+  div.flex.flex-1.flex-col.overflow-hidden,
+  main.flex-1.overflow-y-auto {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+  }
+
+  /* Ensure page breaks are handled correctly */
+  .page-break-after {
+    page-break-after: always;
+  }
+
+  .page-break-before {
+    page-break-before: always;
+  }
+
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+  }
+
+  /* Remove scrollbars from print */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}
+

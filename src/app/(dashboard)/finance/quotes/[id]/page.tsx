@@ -386,12 +386,22 @@ export default function QuoteDetailsPage() {
             <style jsx global>{`
                 @media print {
                     .no-print { display: none !important; }
-                    body { background: white !important; margin: 0 !important; padding: 0 !important; font-size: 11px !important; }
+                    body { 
+                        background: white !important; 
+                        font-size: 11px !important; 
+                        -webkit-print-color-adjust: exact !important; 
+                        print-color-adjust: exact !important;
+                    }
                     nav, header, aside, footer { display: none !important; }
-                    main { padding: 0 !important; margin: 0 !important; }
+                    main { padding: 0 !important; margin: 0 !important; overflow: visible !important; height: auto !important; }
                     [class*="shadow"] { box-shadow: none !important; }
-                    [class*="Card"] { border: none !important; box-shadow: none !important; margin: 0 !important; }
-                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    [class*="Card"] { 
+                        border: none !important; 
+                        box-shadow: none !important; 
+                        margin: 0 !important;
+                        overflow: visible !important;
+                        height: auto !important;
+                    }
                     .nextjs-static-indicator-toast-wrapper { display: none !important; }
                 }
             `}</style>
